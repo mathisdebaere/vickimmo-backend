@@ -1,24 +1,24 @@
-# wmss-boilerplate
-PHP project folder structure for the course Web &amp; Mobile Server-side, part of the Professional Bachelor ICT study program.
+# php-boilerplate
+PHP project folder structure for the courses *Back-end Development* and *Full-stack: Introductory Project*, part of the Professional Bachelor ICT study program.
 
 ## Links
 
-* [Course slides](https://intern.ikdoeict.be/apps/leercentrum/courses/wmss-course-materials/)
+* [Course slides](https://ikdoeict.gitlab.io/public/vakken/back-end-development/workshops/)
 * [PHP Documentation](https://www.php.net/docs.php)
 * [MySQL 8.0 Reference Manual](https://dev.mysql.com/doc/refman/8.0/en/)
-* [Doctrine DBAL 3.5 documentation](https://www.doctrine-project.org/projects/doctrine-dbal/en/current/index.html)
+* [Doctrine DBAL 3.7 documentation](https://www.doctrine-project.org/projects/doctrine-dbal/en/3.7/index.html)
 * [Twig 3.x documentation](https://twig.symfony.com/doc/3.x/)
 * [bramus/router documentation](https://github.com/bramus/router)
 
 ## Installing and developing your own project based on this boilerplate
 
-1. Create a new completely! empty project on gitlab.com/ikdoeict, for example my-project
+1. Create a new completely! empty project (without README) on gitlab.com/ikdoeict, for example my-project
 2. Execute following commands on your system (pay attention !)
 ```shell
 mkdir my-project
 cd my-project
 git init
-git pull https://gitlab.com/ikdoeict/joris.maervoet/wmss-boilerplate.git
+git pull https://gitlab.com/ikdoeict/public/vakken/back-end-development/php-boilerplate.git
 git remote add origin https://gitlab.com/ikdoeict/<your-name>/my-project.git
 git push -u origin master
 ```
