@@ -1,6 +1,8 @@
 # php-boilerplate
 PHP project folder structure for the courses *Back-end Development* and *Full-stack: Introductory Project*, part of the Professional Bachelor ICT study program.
 
+**main** branch: MySQL 8.0 | PhpMyAdmin | Apache + PHP 8.2 | libs: doctrine/dbal, twig/twig, bramus/router 
+
 ## Links
 
 * [Course slides](https://ikdoeict.gitlab.io/public/vakken/back-end-development/workshops/)
@@ -20,7 +22,7 @@ cd my-project
 git init
 git pull https://gitlab.com/ikdoeict/public/vakken/back-end-development/php-boilerplate.git
 git remote add origin https://gitlab.com/ikdoeict/<your-name>/my-project.git
-git push -u origin master
+git push -u origin main
 ```
 3. From now on, you can stage, commit and push as usual.
 4. Open the main folder with an IDE (such as PhpStorm or Visual Studio Code)
