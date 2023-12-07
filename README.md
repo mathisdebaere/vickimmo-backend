@@ -3,6 +3,8 @@ PHP project folder structure for the courses *Back-end Development* and *Full-st
 
 **main** branch: MySQL 8.0 | PhpMyAdmin | Apache + PHP 8.2 | libs: doctrine/dbal, twig/twig, bramus/router 
 
+**plesk-web-api** branch: MariaDB 10.6.12 | PhpMyAdmin | Apache + PHP 8.2 | libs: doctrine/dbal, bramus/router
+
 ## Links
 
 * [Course slides](https://ikdoeict.gitlab.io/public/vakken/back-end-development/workshops/)
