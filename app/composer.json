@@ -7,5 +7,48 @@
     },
     "autoload": {
         "classmap": ["src/"]
+    },
+    "config": {
+        "platform": {
+            "php": "8.3.11",
+            "ext-Core": "8.3.11",
+            "ext-date": "8.3.11",
+            "ext-libxml": "8.3.11",
+            "ext-openssl": "8.3.11",
+            "ext-pcre": "8.3.11",
+            "ext-sqlite3": "8.3.11",
+            "ext-zlib": "8.3.11",
+            "ext-ctype": "8.3.11",
+            "ext-curl": "8.3.11",
+            "ext-dom": "20031129",
+            "ext-fileinfo": "8.3.11",
+            "ext-filter": "8.3.11",
+            "ext-hash": "8.3.11",
+            "ext-iconv": "8.3.11",
+            "ext-json": "8.3.11",
+            "ext-mbstring": "8.3.11",
+            "ext-SPL": "8.3.11",
+            "ext-session": "8.3.11",
+            "ext-PDO": "8.3.11",
+            "ext-pdo_sqlite": "8.3.11",
+            "ext-standard": "8.3.11",
+            "ext-posix": "8.3.11",
+            "ext-random": "8.3.11",
+            "ext-readline": "8.3.11",
+            "ext-Reflection": "8.3.11",
+            "ext-Phar": "8.3.11",
+            "ext-SimpleXML": "8.3.11",
+            "ext-tokenizer": "8.3.11",
+            "ext-xml": "8.3.11",
+            "ext-xmlreader": "8.3.11",
+            "ext-xmlwriter": "8.3.11",
+            "ext-mysqlnd": "8.3.11",
+            "ext-bcmath": "8.3.11",
+            "ext-gd": "8.3.11",
+            "ext-pdo_mysql": "8.3.11",
+            "ext-soap": "8.3.11",
+            "ext-sodium": "8.3.11",
+            "ext-zip": "1.22.3"
+        }
     }
 }

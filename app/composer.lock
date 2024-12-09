@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "6083b2d6e2006c5d78a81c5b5bbef04a",
+    "content-hash": "b88306fe65cbc1a5bcecf952f9ebaa67",
     "packages": [
         {
             "name": "bramus/router",
@@ -539,8 +539,8 @@
             "type": "library",
             "extra": {
                 "thanks": {
-                    "name": "symfony/polyfill",
-                    "url": "https://github.com/symfony/polyfill"
+                    "url": "https://github.com/symfony/polyfill",
+                    "name": "symfony/polyfill"
                 }
             },
             "autoload": {
@@ -692,8 +692,8 @@
             "type": "library",
             "extra": {
                 "thanks": {
-                    "name": "symfony/polyfill",
-                    "url": "https://github.com/symfony/polyfill"
+                    "url": "https://github.com/symfony/polyfill",
+                    "name": "symfony/polyfill"
                 }
             },
             "autoload": {
@@ -772,8 +772,8 @@
             "type": "library",
             "extra": {
                 "thanks": {
-                    "name": "symfony/polyfill",
-                    "url": "https://github.com/symfony/polyfill"
+                    "url": "https://github.com/symfony/polyfill",
+                    "name": "symfony/polyfill"
                 }
             },
             "autoload": {
@@ -1001,5 +1001,46 @@
     "prefer-lowest": false,
     "platform": [],
     "platform-dev": [],
+    "platform-overrides": {
+        "php": "8.3.11",
+        "ext-Core": "8.3.11",
+        "ext-date": "8.3.11",
+        "ext-libxml": "8.3.11",
+        "ext-openssl": "8.3.11",
+        "ext-pcre": "8.3.11",
+        "ext-sqlite3": "8.3.11",
+        "ext-zlib": "8.3.11",
+        "ext-ctype": "8.3.11",
+        "ext-curl": "8.3.11",
+        "ext-dom": "20031129",
+        "ext-fileinfo": "8.3.11",
+        "ext-filter": "8.3.11",
+        "ext-hash": "8.3.11",
+        "ext-iconv": "8.3.11",
+        "ext-json": "8.3.11",
+        "ext-mbstring": "8.3.11",
+        "ext-SPL": "8.3.11",
+        "ext-session": "8.3.11",
+        "ext-PDO": "8.3.11",
+        "ext-pdo_sqlite": "8.3.11",
+        "ext-standard": "8.3.11",
+        "ext-posix": "8.3.11",
+        "ext-random": "8.3.11",
+        "ext-readline": "8.3.11",
+        "ext-Reflection": "8.3.11",
+        "ext-Phar": "8.3.11",
+        "ext-SimpleXML": "8.3.11",
+        "ext-tokenizer": "8.3.11",
+        "ext-xml": "8.3.11",
+        "ext-xmlreader": "8.3.11",
+        "ext-xmlwriter": "8.3.11",
+        "ext-mysqlnd": "8.3.11",
+        "ext-bcmath": "8.3.11",
+        "ext-gd": "8.3.11",
+        "ext-pdo_mysql": "8.3.11",
+        "ext-soap": "8.3.11",
+        "ext-sodium": "8.3.11",
+        "ext-zip": "1.22.3"
+    },
     "plugin-api-version": "2.6.0"
 }

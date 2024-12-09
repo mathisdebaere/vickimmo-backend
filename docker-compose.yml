@@ -31,3 +31,9 @@ services:
     restart: always
     depends_on:
       - mysqldb
+  composer:
+    image: composer
+    command:
+      - install
+    volumes:
+      - "./app:/app"
