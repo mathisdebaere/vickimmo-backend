@@ -1,16 +1,20 @@
 # php-boilerplate
 PHP project folder structure for the courses *Back-end Development* and *Full-stack: Introductory Project*, part of the Professional Bachelor ICT study program.
 
-**main** branch: MySQL 8.0 | PhpMyAdmin | Apache + PHP 8.2 | libs: doctrine/dbal, twig/twig, bramus/router 
+**main** branch: MySQL 8.4 | PhpMyAdmin | Apache + PHP 8.3 | libs: vlucas/phpdotenv, doctrine/dbal, twig/twig, bramus/router 
 
-**plesk-web-api** branch: MariaDB 10.6.12 | PhpMyAdmin | Apache + PHP 8.2 | libs: doctrine/dbal, bramus/router
+**plesk-web-api** branch: MariaDB 10.6.18 | PhpMyAdmin | Apache + PHP 8.3 | libs: vlucas/phpdotenv, doctrine/dbal, bramus/router
+
+**!!!** The multi-container environment performs an **automated install** in the dev env when started:
+* the **composer** container performs ```composer install``` creating the ```vendor``` folder
+* when ```.env``` is missing, the **run-command** container copies ```.env.dev``` to ```.env```
 
 ## Links
 
 * [Course slides](https://ikdoeict.gitlab.io/public/vakken/back-end-development/workshops/)
 * [PHP Documentation](https://www.php.net/docs.php)
-* [MySQL 8.0 Reference Manual](https://dev.mysql.com/doc/refman/8.0/en/)
-* [Doctrine DBAL 3.7 documentation](https://www.doctrine-project.org/projects/doctrine-dbal/en/3.7/index.html)
+* [MySQL 8.4 Reference Manual](https://dev.mysql.com/doc/refman/8.4/en/)
+* [Doctrine DBAL 4.2 documentation](https://www.doctrine-project.org/projects/doctrine-dbal/en/4.2/index.html)
 * [Twig 3.x documentation](https://twig.symfony.com/doc/3.x/)
 * [bramus/router documentation](https://github.com/bramus/router)
 
@@ -42,22 +46,21 @@ docker-compose up
 docker-compose down
 ```
 
-## Installing Twig, DBAL and bramus/router
-
-The MCE is provided with a `composer.json`/`composer.lock` file, providing the Twig and DBAL libraries
-* In order to install, run from your terminal/cmd
+## Development
+* Feel free to introduce new environment variables in ```.env``` (not on git), but
+  * be gentle and add them to ```.env.dev``` (on git), if necessary with an empty value (e.g. ```API_KEY=```)
+  * add them to the ```$dotenv->required``` list in ```index.php```
+* In order to install libraries, run from your terminal/cmd
 ```shell
 docker-compose exec php-web bash
-$ composer install
+$ composer ...
 $ exit
 ```
+* Want to know whether the **composer** container still works? Delete the ```vendor``` folder and restart with ```docker compose down/up```
 
-## About the autoloader
-
-`composer.json` is configured such that the classes in "src/" (and subfolders), and the files "config/database.php" and "config/app.php" are autoloaded.
-* This means there is no need to require these classes anymore in your `public/*.php` scripts.
-* You can extend this list yourself in `composer.json`
-* When you changed this list, or you created some new classes, let composer know from your terminal/cmd:
+* `composer.json` is configured such that the classes in "src/" (and subfolders) are autoloaded.
+  * This means there is no need to require these classes anymore in your `public/*.php` scripts.
+  * When you created some new class(es), let composer know from your terminal/cmd:
 ```shell
 docker-compose exec php-web bash
 $ composer dump-autoload
