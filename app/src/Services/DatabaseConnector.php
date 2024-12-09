@@ -19,7 +19,7 @@ class DatabaseConnector
             $connection = \Doctrine\DBAL\DriverManager::getConnection($connectionParams);
             $version = $connection->getServerVersion();
         } catch (\Doctrine\DBAL\Exception $e) {
-            if ($_ENV['DEBUG']) {
+            if ($_ENV['DEBUG'] == 'true') {
                 echo($e->getMessage() . PHP_EOL);
             } else {
                 $filename = __DIR__ . '/../../storage/db.log';
