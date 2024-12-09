@@ -4,16 +4,22 @@ namespace Services;
 
 class DatabaseConnector
 {
-    static function getConnection() : \Doctrine\DBAL\Connection {
+    static function getConnection(?string $dbName = null): \Doctrine\DBAL\Connection
+    {
         $connectionParams = [
-            'url' => 'mysql://' . DB_USER . ':' . DB_PASS . '@' . DB_HOST . '/' . DB_NAME
+            'dbname' => $dbName ?? $_ENV['DB_NAME'],
+            'user' => $_ENV['DB_USER'],
+            'password' => $_ENV['DB_PASS'],
+            'host' => $_ENV['DB_HOST'],
+            'driver' => 'pdo_mysql',
+            'charset' => 'utf8mb4'
         ];
 
         try {
             $connection = \Doctrine\DBAL\DriverManager::getConnection($connectionParams);
-            $connection->connect();
+            $version = $connection->getServerVersion();
         } catch (\Doctrine\DBAL\Exception $e) {
-            if (DEBUG) {
+            if ($_ENV['DEBUG']) {
                 echo($e->getMessage() . PHP_EOL);
             } else {
                 $filename = __DIR__ . '/../../storage/db.log';
