@@ -37,3 +37,11 @@ services:
       - install
     volumes:
       - "./app:/app"
+    restart: "no"
+  run-command:
+    image: ubuntu:latest
+    entrypoint: [ "/bin/bash", "-c" ]
+    command: "\"cd /home/ubuntu && [ ! -f .env ] && echo '.env is missing. Copying .env.dev ...' && cp .env.dev .env\""
+    volumes:
+      - "./app:/home/ubuntu"
+    restart: "no"
