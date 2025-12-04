@@ -1,29 +1,23 @@
 <?php
 
 namespace Http;
+use \Services\ApiResponse;
 use \Services\DatabaseConnector;
 
 class MyController
 {
     protected \Doctrine\DBAL\Connection $db;
-    protected \Twig\Environment $twig;
 
     public function __construct()
     {
         // initiate DB connection
         $this->db = DatabaseConnector::getConnection();
 
-        // bootstrap Twig
-        $loader = new \Twig\Loader\FilesystemLoader(__DIR__ . '/../../resources/templates');
-        $this->twig = new \Twig\Environment($loader, ['cache' => __DIR__ . '/../../storage/cache']);
-        $function = new \Twig\TwigFunction('url', function ($path) {
-            return $_ENV['BASE_PATH'] . $path;
-        });
-        $this->twig->addFunction($function);
     }
 
-    public function welcome()
+    public function overview()
     {
-        echo $this->twig->render('layout.twig');
+        $productRows = $this->db->fetchAllAssociative('SELECT * FROM products', []);
+        ApiResponse::success($productRows);
     }
 }

@@ -12,6 +12,6 @@ $router = new \Bramus\Router\Router();
 $router->setNamespace('\Http');
 
 // add your routes and run!
-$router->get('/', 'MyController@welcome');
+$router->get('/', 'MyController@overview');
 
 $router->run();
