@@ -1,9 +1,9 @@
 # php-boilerplate
 PHP project folder structure for the courses *Back-end Development* and *Full-stack: Introductory Project*, part of the Professional Bachelor ICT study program.
 
-**main** branch: MySQL 8.4 | PhpMyAdmin | Apache + PHP 8.3 | libs: vlucas/phpdotenv, doctrine/dbal, twig/twig, bramus/router 
+**main** branch: MySQL 8.4 | PhpMyAdmin | Apache + PHP 8.4 | libs: vlucas/phpdotenv, doctrine/dbal, twig/twig, bramus/router 
 
-**plesk-web-api** branch: MariaDB 10.6.18 | PhpMyAdmin | Apache + PHP 8.3 | libs: vlucas/phpdotenv, doctrine/dbal, bramus/router
+**plesk-web-api** branch: MariaDB 10.6.22 | PhpMyAdmin | Apache + PHP 8.4 | libs: vlucas/phpdotenv, doctrine/dbal, bramus/router
 
 **!!!** The multi-container environment performs an **automated install** in the dev env when started:
 * the **composer** container performs ```composer install``` creating the ```vendor``` folder
@@ -14,7 +14,7 @@ PHP project folder structure for the courses *Back-end Development* and *Full-st
 * [Course slides](https://ikdoeict.gitlab.io/public/vakken/back-end-development/workshops/)
 * [PHP Documentation](https://www.php.net/docs.php)
 * [MySQL 8.4 Reference Manual](https://dev.mysql.com/doc/refman/8.4/en/)
-* [Doctrine DBAL 4.2 documentation](https://www.doctrine-project.org/projects/doctrine-dbal/en/4.2/index.html)
+* [Doctrine DBAL 4.4 documentation](https://www.doctrine-project.org/projects/doctrine-dbal/en/4.4/index.html)
 * [Twig 3.x documentation](https://twig.symfony.com/doc/3.x/)
 * [bramus/router documentation](https://github.com/bramus/router)
 
