@@ -7,30 +7,29 @@ services:
       - "./app:/var/www"
       - "./docker/php.ini:/usr/local/etc/php/php.ini"
     links:
-      - mysqldb
-  mysqldb:
-    image: mysql:8.4
+      - mariadb
+  mariadb:
+    image: mariadb:10.6.22
     restart: always
     ports:
       - "3307:3306"
     volumes:
-      - "./docker/mysql-data:/var/lib/mysql"
+      - "./docker/mariadb-data:/var/lib/mysql"
       - "./docker/demo.sql:/docker-entrypoint-initdb.d/dump.sql"
     environment:
-      - MYSQL_ROOT_PASSWORD=Azerty123
+      - MARIADB_ROOT_PASSWORD=Azerty123
       - LANG=C.UTF-8
   myadmin:
     image: phpmyadmin/phpmyadmin
-    container_name: phpmyadmin
     ports:
       - "8000:80"
     environment:
       - PMA_ARBITRARY=0
-      - PMA_HOST=mysqldb
+      - PMA_HOST=mariadb
       - UPLOAD_LIMIT=50M
     restart: always
     depends_on:
-      - mysqldb
+      - mariadb
   composer:
     image: composer
     command:
