@@ -1,0 +1,1385 @@
+openapi: '3.0.0'
+info:
+  title: 'Vickimmo API'
+  version: '1.0.0'
+  description: 'Real estate platform API'
+
+servers:
+  - url: 'http://localhost:8080'
+    description: 'Local server'
+  - url: 'https://vickimmo.celinestevens.ikdoeict.be'
+    description: 'Production server'
+
+tags:
+  - name: 'Authentication'
+    description: 'Login, register, logout'
+  - name: 'Users'
+    description: 'User management'
+  - name: 'Agencies'
+    description: 'Real estate agencies'
+  - name: 'Employees'
+    description: 'Agency employees management'
+  - name: 'Properties'
+    description: 'Property listings'
+  - name: 'Property Images'
+    description: 'Property images management'
+  - name: 'Features'
+    description: 'Property features management'
+  - name: 'Reviews'
+    description: 'Agency reviews'
+  - name: 'Auctions'
+    description: 'Property auctions'
+  - name: 'Bids'
+    description: 'Auction bids'
+  - name: 'Favorites'
+    description: 'User favorites'
+  - name: 'Notifications'
+    description: 'User notifications'
+  - name: 'Search'
+    description: 'Search functionality'
+  - name: 'History'
+    description: 'User history'
+
+paths:
+  # === AUTHENTICATION ===
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: 'User login'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: {type: string, example: 'user@example.com'}
+                password: {type: string, example: 'password123'}
+      responses:
+        '200':
+          description: 'Login successful'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: {type: string, example: 'jwt_token_here'}
+                  user: {$ref: '#/components/schemas/User'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/register:
+    post:
+      tags: [Authentication]
+      summary: 'Register new user'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: {type: string, example: 'John Doe'}
+                email: {type: string, example: 'john@example.com'}
+                password: {type: string, example: 'password123'}
+                phone: {type: string, example: '+32123456789'}
+                role: {type: string, enum: [client, employee, owner, admin], default: 'client'}
+      responses:
+        '201':
+          description: 'User created successfully'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      summary: 'User logout'
+      security: [{BearerAuth: []}]
+      responses:
+        '200':
+          description: 'Logout successful'
+
+  # === USERS ===
+  /api/users:
+    get:
+      tags: [Users]
+      summary: 'Get all users (admin only)'
+      security: [{BearerAuth: []}]
+      parameters:
+        - name: role
+          in: query
+          schema: {type: string, enum: [client, employee, owner, admin]}
+      responses:
+        '200':
+          description: 'List of users'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags: [Users]
+      summary: 'Create new user (admin only)'
+      security: [{BearerAuth: []}]
+      requestBody:
+        $ref: '#/components/requestBodies/UserRegistration'
+      responses:
+        '201':
+          description: 'User created'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/users/{id}:
+    get:
+      tags: [Users]
+      summary: 'Get user by ID'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      responses:
+        '200':
+          description: 'User details'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Users]
+      summary: 'Update user'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      requestBody:
+        $ref: '#/components/requestBodies/UserUpdate'
+      responses:
+        '200':
+          description: 'User updated'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Users]
+      summary: 'Delete user (admin only)'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      responses:
+        '204':
+          description: 'User deleted'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # === EMPLOYEES ===
+  /api/agencies/{id}/employees:
+    get:
+      tags: [Employees]
+      summary: 'Get agency employees'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      responses:
+        '200':
+          description: 'List of employees'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+
+    post:
+      tags: [Employees]
+      summary: 'Add employee to agency (owner/admin only)'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id: {type: integer, example: 1}
+      responses:
+        '201':
+          description: 'Employee added'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/agencies/{agencyId}/employees/{userId}:
+    delete:
+      tags: [Employees]
+      summary: 'Remove employee from agency (owner/admin only)'
+      parameters:
+        - name: agencyId
+          in: path
+          required: true
+          schema: {type: integer}
+        - name: userId
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      responses:
+        '204':
+          description: 'Employee removed'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # === AGENCIES ===
+  /api/agencies:
+    get:
+      tags: [Agencies]
+      summary: 'Get all agencies'
+      parameters:
+        - name: city
+          in: query
+          schema: {type: string}
+        - name: verified
+          in: query
+          schema: {type: boolean}
+        - name: limit
+          in: query
+          schema: {type: integer, default: 20}
+        - name: offset
+          in: query
+          schema: {type: integer, default: 0}
+      responses:
+        '200':
+          description: 'List of agencies'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Agency'
+
+    post:
+      tags: [Agencies]
+      summary: 'Create new agency (owner/admin only)'
+      security: [{BearerAuth: []}]
+      requestBody:
+        $ref: '#/components/requestBodies/Agency'
+      responses:
+        '201':
+          description: 'Agency created'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agency'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/agencies/{id}:
+    get:
+      tags: [Agencies]
+      summary: 'Get agency by ID'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      responses:
+        '200':
+          description: 'Agency details'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agency'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Agencies]
+      summary: 'Update agency (owner/admin only)'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      requestBody:
+        $ref: '#/components/requestBodies/AgencyUpdate'
+      responses:
+        '200':
+          description: 'Agency updated'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agency'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Agencies]
+      summary: 'Delete agency (admin only)'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      responses:
+        '204':
+          description: 'Agency deleted'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # === PROPERTIES ===
+  /api/properties:
+    get:
+      tags: [Properties]
+      summary: 'Search properties with filters'
+      parameters:
+        - name: min_price
+          in: query
+          schema: {type: number}
+        - name: max_price
+          in: query
+          schema: {type: number}
+        - name: city
+          in: query
+          schema: {type: string}
+        - name: type
+          in: query
+          schema: {type: string, enum: [house, apartment, land, garage, business]}
+        - name: status
+          in: query
+          schema: {type: string, enum: [for sale, for rent, sold, rented]}
+        - name: min_bedrooms
+          in: query
+          schema: {type: integer}
+        - name: min_bathrooms
+          in: query
+          schema: {type: integer}
+        - name: min_living_area
+          in: query
+          schema: {type: number}
+        - name: max_living_area
+          in: query
+          schema: {type: number}
+        - name: build_year
+          in: query
+          schema: {type: integer}
+        - name: epc_label
+          in: query
+          schema: {type: string, enum: [A+, A, B, C, D, E, F]}
+        - name: auction
+          in: query
+          schema: {type: boolean}
+        - name: visibility
+          in: query
+          schema: {type: string, enum: [public, private, archived]}
+        - name: agency_id
+          in: query
+          schema: {type: integer}
+        - name: limit
+          in: query
+          schema: {type: integer, default: 20}
+        - name: offset
+          in: query
+          schema: {type: integer, default: 0}
+      responses:
+        '200':
+          description: 'List of properties'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Property'
+
+    post:
+      tags: [Properties]
+      summary: 'Create new property (agency member/admin only)'
+      security: [{BearerAuth: []}]
+      requestBody:
+        $ref: '#/components/requestBodies/Property'
+      responses:
+        '201':
+          description: 'Property created'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Property'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/properties/{id}:
+    get:
+      tags: [Properties]
+      summary: 'Get property by ID'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      responses:
+        '200':
+          description: 'Property details'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Property'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Properties]
+      summary: 'Update property (owner/admin only)'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      requestBody:
+        $ref: '#/components/requestBodies/PropertyUpdate'
+      responses:
+        '200':
+          description: 'Property updated'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Property'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Properties]
+      summary: 'Delete property (owner/admin only)'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      responses:
+        '204':
+          description: 'Property deleted'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # === PROPERTY IMAGES ===
+  /api/properties/{id}/images:
+    get:
+      tags: [Property Images]
+      summary: 'Get property images'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      responses:
+        '200':
+          description: 'List of images'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PropertyImage'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [Property Images]
+      summary: 'Upload property image (owner/admin only)'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+                is_main:
+                  type: boolean
+      responses:
+        '201':
+          description: 'Image uploaded'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/properties/{propertyId}/images/{imageId}:
+    delete:
+      tags: [Property Images]
+      summary: 'Delete property image (owner/admin only)'
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: {type: integer}
+        - name: imageId
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      responses:
+        '204':
+          description: 'Image deleted'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # === FEATURES ===
+  /api/features:
+    get:
+      tags: [Features]
+      summary: 'Get all features'
+      responses:
+        '200':
+          description: 'List of features'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Feature'
+
+    post:
+      tags: [Features]
+      summary: 'Create new feature (admin only)'
+      security: [{BearerAuth: []}]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: {type: string, example: 'Swimming pool'}
+      responses:
+        '201':
+          description: 'Feature created'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/properties/{id}/features:
+    get:
+      tags: [Features]
+      summary: 'Get property features'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      responses:
+        '200':
+          description: 'List of features'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Feature'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [Features]
+      summary: 'Add feature to property (owner/admin only)'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [feature_id]
+              properties:
+                feature_id: {type: integer, example: 1}
+      responses:
+        '201':
+          description: 'Feature added'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/properties/{propertyId}/features/{featureId}:
+    delete:
+      tags: [Features]
+      summary: 'Remove feature from property (owner/admin only)'
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: {type: integer}
+        - name: featureId
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      responses:
+        '204':
+          description: 'Feature removed'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # === REVIEWS ===
+  /api/agencies/{id}/reviews:
+    get:
+      tags: [Reviews]
+      summary: 'Get agency reviews'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+        - name: limit
+          in: query
+          schema: {type: integer, default: 10}
+        - name: offset
+          in: query
+          schema: {type: integer, default: 0}
+        - name: min_rating
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 5}
+      responses:
+        '200':
+          description: 'List of reviews'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Review'
+
+    post:
+      tags: [Reviews]
+      summary: 'Create review for agency'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      requestBody:
+        $ref: '#/components/requestBodies/Review'
+      responses:
+        '201':
+          description: 'Review created'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Review'
+
+  /api/agencies/{agencyId}/reviews/{userId}:
+    delete:
+      tags: [Reviews]
+      summary: 'Delete review (admin or review owner only)'
+      parameters:
+        - name: agencyId
+          in: path
+          required: true
+          schema: {type: integer}
+        - name: userId
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      responses:
+        '204':
+          description: 'Review deleted'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # === AUCTIONS ===
+  /api/properties/{id}/auction:
+    get:
+      tags: [Auctions]
+      summary: 'Get auction details for property'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      responses:
+        '200':
+          description: 'Auction details'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Auction'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [Auctions]
+      summary: 'Create auction for property (owner/admin only)'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      requestBody:
+        $ref: '#/components/requestBodies/Auction'
+      responses:
+        '201':
+          description: 'Auction created'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Auction'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/auctions/{id}:
+    delete:
+      tags: [Auctions]
+      summary: 'Cancel auction (owner/admin only)'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      responses:
+        '204':
+          description: 'Auction cancelled'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # === BIDS ===
+  /api/auctions/{id}/bids:
+    get:
+      tags: [Bids]
+      summary: 'Get auction bids'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      responses:
+        '200':
+          description: 'List of bids'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Bid'
+
+    post:
+      tags: [Bids]
+      summary: 'Place bid on auction'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bid_amount]
+              properties:
+                bid_amount: {type: number, example: 250000.00}
+      responses:
+        '201':
+          description: 'Bid placed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bid'
+
+  /api/auctions/{auctionId}/bids/{bidId}:
+    delete:
+      tags: [Bids]
+      summary: 'Cancel bid (admin or bid owner only)'
+      parameters:
+        - name: auctionId
+          in: path
+          required: true
+          schema: {type: integer}
+        - name: bidId
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      responses:
+        '204':
+          description: 'Bid cancelled'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # === FAVORITES ===
+  /api/users/{id}/favorites:
+    get:
+      tags: [Favorites]
+      summary: 'Get user favorites'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      responses:
+        '200':
+          description: 'List of favorite properties'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Property'
+
+    post:
+      tags: [Favorites]
+      summary: 'Add property to favorites'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [property_id]
+              properties:
+                property_id: {type: integer, example: 1}
+      responses:
+        '201':
+          description: 'Property added to favorites'
+
+  /api/users/{id}/favorites/{propertyId}:
+    delete:
+      tags: [Favorites]
+      summary: 'Remove property from favorites'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+        - name: propertyId
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      responses:
+        '204':
+          description: 'Property removed from favorites'
+
+  # === NOTIFICATIONS ===
+  /api/users/{id}/notifications:
+    get:
+      tags: [Notifications]
+      summary: 'Get user notifications'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+        - name: unread_only
+          in: query
+          schema: {type: boolean, default: false}
+      security: [{BearerAuth: []}]
+      responses:
+        '200':
+          description: 'List of notifications'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notification'
+
+    delete:
+      tags: [Notifications]
+      summary: 'Clear all notifications'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      responses:
+        '204':
+          description: 'Notifications cleared'
+
+  /api/users/{userId}/notifications/{notificationId}:
+    put:
+      tags: [Notifications]
+      summary: 'Mark notification as read'
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: {type: integer}
+        - name: notificationId
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      responses:
+        '200':
+          description: 'Notification marked as read'
+
+    delete:
+      tags: [Notifications]
+      summary: 'Delete notification'
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: {type: integer}
+        - name: notificationId
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      responses:
+        '204':
+          description: 'Notification deleted'
+
+  # === SEARCH ===
+  /api/search/filters:
+    post:
+      tags: [Search]
+      summary: 'Save search filter'
+      security: [{BearerAuth: []}]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [filters]
+              properties:
+                filters: {type: object}
+                name: {type: string, example: 'My search'}
+      responses:
+        '201':
+          description: 'Search filter saved'
+
+  /api/users/{id}/search-filters:
+    get:
+      tags: [Search]
+      summary: 'Get user search filters'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      responses:
+        '200':
+          description: 'List of search filters'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SearchFilter'
+
+  # === HISTORY ===
+  /api/users/{id}/view-history:
+    get:
+      tags: [History]
+      summary: 'Get user view history'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+        - name: limit
+          in: query
+          schema: {type: integer, default: 20}
+      security: [{BearerAuth: []}]
+      responses:
+        '200':
+          description: 'List of viewed properties'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Property'
+
+    post:
+      tags: [History]
+      summary: 'Add property to view history'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      security: [{BearerAuth: []}]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [property_id]
+              properties:
+                property_id: {type: integer, example: 1}
+      responses:
+        '201':
+          description: 'Property added to history'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id: {type: integer, example: 1}
+        name: {type: string, example: 'John Doe'}
+        email: {type: string, example: 'john@example.com'}
+        phone: {type: string, example: '+32123456789'}
+        role: {type: string, enum: [client, employee, owner, admin], example: 'client'}
+        created_at: {type: string, format: date-time, example: '2025-12-11T12:00:00Z'}
+        updated_at: {type: string, format: date-time, example: '2025-12-11T12:00:00Z'}
+
+    Agency:
+      type: object
+      properties:
+        id: {type: integer, example: 1}
+        name: {type: string, example: 'Immo dhaene'}
+        email: {type: string, example: 'info@immodhaene.be'}
+        phone: {type: string, example: '+3291234567'}
+        description: {type: string, example: 'Professional real estate agency'}
+        address: {type: string, example: 'Kerkstraat 1'}
+        city: {type: string, example: 'Gent'}
+        postal: {type: string, example: '9000'}
+        website: {type: string, example: 'https://www.immodhaene.be'}
+        logo: {type: string, example: '/logos/agency1.jpg'}
+        created_at: {type: string, format: date-time, example: '2025-12-11T12:00:00Z'}
+        updated_at: {type: string, format: date-time, example: '2025-12-11T12:00:00Z'}
+
+    Property:
+      type: object
+      properties:
+        id: {type: integer, example: 1}
+        title: {type: string, example: 'Modern apartment in city center'}
+        description: {type: string, example: 'Beautiful modern apartment'}
+        agency_id: {type: integer, example: 1}
+        address: {type: string, example: 'Market Street 123'}
+        city: {type: string, example: 'Gent'}
+        postal: {type: string, example: '9000'}
+        price: {type: number, format: float, example: 250000.00}
+        build_year: {type: integer, example: 2015}
+        type: {type: string, enum: [house, apartment, land, garage, business], example: 'apartment'}
+        sub_type: {type: string, example: 'apartment'}
+        status: {type: string, enum: [for sale, for rent, sold, rented], example: 'for sale'}
+        visibility: {type: string, enum: [public, private, archived], example: 'public'}
+        auction: {type: boolean, example: false}
+        bedrooms: {type: integer, example: 2}
+        bathrooms: {type: integer, example: 1}
+        living_area: {type: number, format: float, example: 85.5}
+        surface_area: {type: number, format: float, example: 100.0}
+        epc_label: {type: string, enum: [A+, A, B, C, D, E, F], example: 'B'}
+        epc_value: {type: integer, example: 150}
+        floors: {type: integer, example: 2}
+        availability: {type: boolean, example: true}
+        created_at: {type: string, format: date-time, example: '2025-12-11T12:00:00Z'}
+        updated_at: {type: string, format: date-time, example: '2025-12-11T12:00:00Z'}
+
+    PropertyImage:
+      type: object
+      properties:
+        id: {type: integer, example: 1}
+        property_id: {type: integer, example: 1}
+        image_path: {type: string, example: '/images/properties/1.jpg'}
+        is_main: {type: boolean, example: true}
+        created_at: {type: string, format: date-time, example: '2025-12-11T12:00:00Z'}
+
+    Feature:
+      type: object
+      properties:
+        id: {type: integer, example: 1}
+        name: {type: string, example: 'Swimming pool'}
+
+    Review:
+      type: object
+      properties:
+        user_id: {type: integer, example: 1}
+        agency_id: {type: integer, example: 1}
+        rating: {type: integer, minimum: 1, maximum: 5, example: 5}
+        title: {type: string, example: 'Excellent service!'}
+        content: {type: string, example: 'Very professional'}
+        created_at: {type: string, format: date-time, example: '2025-12-11T12:00:00Z'}
+        updated_at: {type: string, format: date-time, example: '2025-12-11T12:00:00Z'}
+
+    Auction:
+      type: object
+      properties:
+        id: {type: integer, example: 1}
+        property_id: {type: integer, example: 1}
+        starting_price: {type: number, format: float, example: 200000.00}
+        starting_time: {type: string, format: date-time, example: '2025-12-15T10:00:00Z'}
+        ending_time: {type: string, format: date-time, example: '2025-12-25T18:00:00Z'}
+        overbidding: {type: integer, example: 1000}
+        created_at: {type: string, format: date-time, example: '2025-12-11T12:00:00Z'}
+        updated_at: {type: string, format: date-time, example: '2025-12-11T12:00:00Z'}
+
+    Bid:
+      type: object
+      properties:
+        id: {type: integer, example: 1}
+        user_id: {type: integer, example: 1}
+        auction_id: {type: integer, example: 1}
+        bid_amount: {type: number, format: float, example: 225000.00}
+        created_at: {type: string, format: date-time, example: '2025-12-11T12:00:00Z'}
+        updated_at: {type: string, format: date-time, example: '2025-12-11T12:00:00Z'}
+
+    Notification:
+      type: object
+      properties:
+        id: {type: integer, example: 1}
+        user_id: {type: integer, example: 1}
+        property_id: {type: integer, example: 1}
+        read: {type: boolean, example: false}
+        created_at: {type: string, format: date-time, example: '2025-12-11T12:00:00Z'}
+        updated_at: {type: string, format: date-time, example: '2025-12-11T12:00:00Z'}
+
+    SearchFilter:
+      type: object
+      properties:
+        id: {type: integer, example: 1}
+        user_id: {type: integer, example: 1}
+        filters: {type: object}
+        name: {type: string, example: 'My search'}
+        created_at: {type: string, format: date-time, example: '2025-12-11T12:00:00Z'}
+
+    Error:
+      type: object
+      properties:
+        success: {type: boolean, example: false}
+        message: {type: string, example: 'Error message'}
+
+  requestBodies:
+    UserRegistration:
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, email, password]
+            properties:
+              name: {type: string, example: 'John Doe'}
+              email: {type: string, example: 'john@example.com'}
+              password: {type: string, example: 'password123'}
+              phone: {type: string, example: '+32123456789'}
+              role: {type: string, enum: [client, employee, owner, admin], default: 'client'}
+
+    UserUpdate:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name: {type: string, example: 'John Doe Updated'}
+              email: {type: string, example: 'john.updated@example.com'}
+              phone: {type: string, example: '+32987654321'}
+              password: {type: string, example: 'newpassword123'}
+
+    Agency:
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, email, address, city, postal]
+            properties:
+              name: {type: string, example: 'Immo dhaene'}
+              email: {type: string, example: 'info@immodhaene.be'}
+              phone: {type: string, example: '+3291234567'}
+              description: {type: string, example: 'Professional real estate agency'}
+              address: {type: string, example: 'Kerkstraat 1'}
+              city: {type: string, example: 'Gent'}
+              postal: {type: string, example: '9000'}
+              website: {type: string, example: 'https://www.immodhaene.be'}
+              logo: {type: string, example: '/logos/agency1.jpg'}
+
+    AgencyUpdate:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name: {type: string, example: 'Immo dhaene Updated'}
+              email: {type: string, example: 'info.updated@immodhaene.be'}
+              phone: {type: string, example: '+3291234568'}
+              description: {type: string, example: 'Updated description'}
+              address: {type: string, example: 'Kerkstraat 2'}
+              city: {type: string, example: 'Gent'}
+              postal: {type: string, example: '9000'}
+              website: {type: string, example: 'https://www.immodhaene-updated.be'}
+              logo: {type: string, example: '/logos/agency1-updated.jpg'}
+
+    Property:
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title, description, agency_id, address, postal, city, price, type, status]
+            properties:
+              title: {type: string, example: 'Modern apartment'}
+              description: {type: string, example: 'Beautiful modern apartment'}
+              agency_id: {type: integer, example: 1}
+              address: {type: string, example: 'Market Street 123'}
+              postal: {type: string, example: '9000'}
+              city: {type: string, example: 'Gent'}
+              price: {type: number, format: float, example: 250000.00}
+              build_year: {type: integer, example: 2015}
+              type: {type: string, enum: [house, apartment, land, garage, business], example: 'apartment'}
+              sub_type: {type: string, example: 'apartment'}
+              status: {type: string, enum: [for sale, for rent, sold, rented], example: 'for sale'}
+              visibility: {type: string, enum: [public, private, archived], default: 'public'}
+              auction: {type: boolean, default: false}
+              bedrooms: {type: integer, example: 2}
+              bathrooms: {type: integer, example: 1}
+              living_area: {type: number, format: float, example: 85.5}
+              surface_area: {type: number, format: float, example: 100.0}
+              epc_label: {type: string, enum: [A+, A, B, C, D, E, F]}
+              epc_value: {type: integer}
+              floors: {type: integer}
+              availability: {type: boolean, default: true}
+
+    PropertyUpdate:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              title: {type: string, example: 'Updated title'}
+              description: {type: string, example: 'Updated description'}
+              price: {type: number, format: float, example: 275000.00}
+              address: {type: string, example: 'Market Street 123A'}
+              postal: {type: string, example: '9000'}
+              city: {type: string, example: 'Gent'}
+              bedrooms: {type: integer, example: 3}
+              bathrooms: {type: integer, example: 2}
+              status: {type: string, enum: [for sale, for rent, sold, rented]}
+              visibility: {type: string, enum: [public, private, archived]}
+              availability: {type: boolean}
+
+    Review:
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [rating, title, content]
+            properties:
+              rating: {type: integer, minimum: 1, maximum: 5, example: 5}
+              title: {type: string, example: 'Excellent service!'}
+              content: {type: string, example: 'Very professional and helpful'}
+
+    Auction:
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [starting_price, starting_time, ending_time]
+            properties:
+              starting_price: {type: number, format: float, example: 200000.00}
+              starting_time: {type: string, format: date-time, example: '2025-12-15T10:00:00Z'}
+              ending_time: {type: string, format: date-time, example: '2025-12-25T18:00:00Z'}
+              overbidding: {type: integer, example: 1000}
+
+  responses:
+    Success:
+      description: 'Operation successful'
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success: {type: boolean, example: true}
+              data: {type: object}
+
+    Error:
+      description: 'Error occurred'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: 'Resource not found'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: 'Unauthorized access'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Forbidden:
+      description: 'Insufficient permissions'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    BadRequest:
+      description: 'Invalid request'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
