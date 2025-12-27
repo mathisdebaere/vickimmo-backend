@@ -1,5 +1,0 @@
-{
-	"dependencies": {
-		"php-jwt": "github:firebase/php-jwt"
-	}
-}
