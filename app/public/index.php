@@ -27,6 +27,7 @@ $router->mount('/api', function() use ($router) {
     $router->get('/properties/(\d+)/images', 'PropertiesController@getAllImg');
     $router->post('/properties/(\d+)/images', 'PropertiesController@postImg');
     $router->delete('/properties/(\d+)/images/(\d+)', 'PropertiesController@deleteImg');
+    $router->delete('/properties/(\d+)/images', 'PropertiesController@deleteAllImg');
 
     // Features
     $router->get('/properties/features', 'PropertiesController@featuresOverview');
