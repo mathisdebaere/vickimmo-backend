@@ -72,9 +72,13 @@ $router->mount('/api', function() use ($router) {
     $router->put('/agencies/(\d+)', 'AgenciesController@putByID');
     $router->delete('/agencies/(\d+)', 'AgenciesController@deleteByID');
 
+    $router->post('/agencies/(\d+)/logo', 'AgenciesController@postLogo');
+    $router->delete('/agencies/(\d+)/logo', 'AgenciesController@deleteLogo');
+
     $router->get('/agencies/(\d+)/reviews', 'AgenciesController@reviewsOverview');
     $router->post('/agencies/(\d+)/reviews', 'AgenciesController@postReview');
-    $router->delete('/agencies/(\d+)/reviews/(\d+)', 'AgenciesController@deleteReviewByID');
+    $router->put('/agencies/(\d+)/reviews/(\d+)', 'AgenciesController@putReview');
+    $router->delete('/agencies/(\d+)/reviews/(\d+)', 'AgenciesController@deleteReview');
 });
 
 // Employees routes

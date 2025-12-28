@@ -10,7 +10,7 @@ class PropertiesController
     protected \Doctrine\DBAL\Connection $db;
     
     private const UPLOAD_DIR = __DIR__ . '/uploads/properties/';
-    private const MAX_UPLOAD_SIZE = 10485760; // 10MB
+    private const MAX_UPLOAD_SIZE = 20971520; // 20MB
     private const ALLOWED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif'];
     
     private const VALID_TYPES = ['house', 'apartment', 'land', 'garage', 'business'];
