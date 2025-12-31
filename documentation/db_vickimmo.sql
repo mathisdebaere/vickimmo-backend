@@ -327,6 +327,28 @@ CREATE TABLE IF NOT EXISTS `immo`.`view_history` (
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8mb4;
 
+-- -----------------------------------------------------
+-- Table `immo`.`refresh_tokens`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `immo`.`refresh_tokens` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT UNSIGNED NOT NULL,
+  `token` TEXT NOT NULL,
+  `expires_at` DATETIME NOT NULL,
+  `revoked` TINYINT(1) NOT NULL DEFAULT '0',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `user_id` (`user_id` ASC) VISIBLE,
+  INDEX `expires_at` (`expires_at` ASC) VISIBLE,
+  CONSTRAINT `refresh_tokens_ibfk_1`
+    FOREIGN KEY (`user_id`)
+    REFERENCES `immo`.`users` (`id`)
+    ON DELETE CASCADE)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4;
+
+
 
 SET SQL_MODE=@OLD_SQL_MODE;
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;

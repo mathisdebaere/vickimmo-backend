@@ -41,12 +41,18 @@ $router->mount('/api', function() use ($router) {
 
 // Authentication routes
 $router->mount('/auth', function() use ($router) {
-    // CORS: API response can be shared with javascript code from origin ALLOW_ORIGIN
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
-
+    
+    // Public authentication routes
     $router->post('/register', 'AuthController@register');
     $router->post('/login', 'AuthController@login');
+    
+    // Protected account management routes
     $router->post('/logout', 'AuthController@logout');
+    $router->get('/account', 'AuthController@account');
+    $router->put('/account', 'AuthController@updateProfile');
+    $router->put('/account/password', 'AuthController@changePassword');
+    $router->post('/refresh', 'AuthController@refreshToken');
 });
 
 // Users routes
