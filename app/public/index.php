@@ -39,6 +39,32 @@ $router->mount('/api', function() use ($router) {
     $router->delete('/properties/(\d+)/features', 'PropertiesController@deleteAllFeaturesFromProperty');
 });
 
+// Auctions routes
+$router->mount('/api', function() use ($router) {
+    header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+
+    // Auctions
+    $router->get('/auctions', 'AuctionsController@overview');
+    $router->post('/auctions', 'AuctionsController@post');
+    $router->get('/auctions/(\d+)', 'AuctionsController@getByID');
+    $router->put('/auctions/(\d+)', 'AuctionsController@putByID');
+    $router->delete('/auctions/(\d+)', 'AuctionsController@deleteByID');
+
+    // Auction status filters
+    $router->get('/auctions/status/active', 'AuctionsController@getActiveAuctions');
+    $router->get('/auctions/status/upcoming', 'AuctionsController@getUpcomingAuctions');
+    $router->get('/auctions/status/ended', 'AuctionsController@getEndedAuctions');
+
+    // Property auctions
+    $router->get('/properties/(\d+)/auctions', 'AuctionsController@getAuctionsByProperty');
+
+    // Bids
+    $router->get('/auctions/(\d+)/bids', 'AuctionsController@getAllBids');
+    $router->post('/auctions/(\d+)/bids', 'AuctionsController@postBid');
+    $router->delete('/auctions/(\d+)/bids/(\d+)', 'AuctionsController@deleteBid');
+    $router->delete('/auctions/(\d+)/bids', 'AuctionsController@deleteAllBids');
+});
+
 // Authentication routes
 $router->mount('/auth', function() use ($router) {
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
