@@ -9,7 +9,7 @@ class AgenciesController
 {
     protected \Doctrine\DBAL\Connection $db;
     
-    private const UPLOAD_DIR = __DIR__ . '/uploads/agencies/';
+    private const UPLOAD_DIR = __DIR__ . '/../public/uploads/agencies/';
     private const MAX_UPLOAD_SIZE = 10485760; // 10MB for logos
     private const ALLOWED_LOGO_EXTENSIONS = ['jpg', 'jpeg', 'png', 'svg', 'webp'];
 
@@ -26,15 +26,45 @@ class AgenciesController
     public function overview(): void
     {
         $agencies = $this->db->fetchAllAssociative(
-            'SELECT id, name, phone, email, description, address, city, postal, 
-                    website, logo, created_at, updated_at 
-            FROM agencies 
-            ORDER BY name ASC'
+            'SELECT 
+                a.id,
+                a.name,
+                a.phone,
+                a.email,
+                a.description,
+                a.address,
+                a.city,
+                a.postal,
+                a.website,
+                a.logo,
+                a.created_at,
+                a.updated_at,
+                COUNT(DISTINCT p.id) AS property_count,
+                COUNT(r.user_id) AS review_count,
+                ROUND(AVG(r.rating), 2) AS avg_rating
+            FROM agencies a
+            LEFT JOIN properties p ON p.agency_id = a.id
+            LEFT JOIN reviews r ON r.agency_id = a.id
+            GROUP BY a.id
+            ORDER BY a.name ASC'
         );
 
+
         ApiResponse::success([
-            'agencies' => array_map(fn($agency) => $this->formatAgencyResponse($agency), $agencies)
+            'agencies' => array_map(function ($agency) {
+                return array_merge(
+                    $this->formatAgencyResponse($agency),
+                    [
+                        'property_count' => (int)$agency['property_count'],
+                        'review_count' => (int)$agency['review_count'],
+                        'avg_rating' => $agency['avg_rating'] !== null
+                            ? (float)$agency['avg_rating']
+                            : null,
+                    ]
+                );
+            }, $agencies)
         ]);
+
     }
 
     public function post(): void
