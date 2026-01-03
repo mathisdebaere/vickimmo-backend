@@ -15,6 +15,7 @@ $router->setNamespace('\Http');
 $router->mount('/api', function() use ($router) {
     // CORS: API response can be shared with javascript code from origin ALLOW_ORIGIN
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Credentials: true');
 
     // Properties
     $router->get('/properties', 'PropertiesController@overview');
@@ -42,6 +43,7 @@ $router->mount('/api', function() use ($router) {
 // Auctions routes
 $router->mount('/api', function() use ($router) {
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Credentials: true');
 
     // Auctions
     $router->get('/auctions', 'AuctionsController@overview');
@@ -68,6 +70,7 @@ $router->mount('/api', function() use ($router) {
 // Authentication routes
 $router->mount('/auth', function() use ($router) {
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Credentials: true');
     
     // Public authentication routes
     $router->post('/register', 'AuthController@register');
@@ -85,6 +88,7 @@ $router->mount('/auth', function() use ($router) {
 $router->mount('/api', function() use ($router) {
     // CORS: API response can be shared with javascript code from origin ALLOW_ORIGIN
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Credentials: true');
 
     $router->get('/users', 'UsersController@overview');
     $router->post('/users', 'UsersController@post');
@@ -97,6 +101,7 @@ $router->mount('/api', function() use ($router) {
 $router->mount('/api', function() use ($router) {
     // CORS: API response can be shared with javascript code from origin ALLOW_ORIGIN
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Credentials: true');
 
     $router->get('/agencies', 'AgenciesController@overview');
     $router->post('/agencies', 'AgenciesController@post');
@@ -117,15 +122,17 @@ $router->mount('/api', function() use ($router) {
 $router->mount('/api', function() use ($router) {
     // CORS: API response can be shared with javascript code from origin ALLOW_ORIGIN
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Credentials: true');
 
     $router->get('/employees/(\d+)', 'EmployeesController@overview');
     $router->post('/employees/(\d+)', 'EmployeesController@post');
     $router->delete('/employees/(\d+)', 'EmployeesController@deleteByID');
 });
 
-// Employees routes
+// Agency Employees routes
 $router->mount('/api', function() use ($router) {
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Credentials: true');
 
     // Agency Employees
     $router->get('/agencies/(\d+)/employees', 'EmployeesController@overview');
@@ -140,16 +147,18 @@ $router->mount('/api', function() use ($router) {
     $router->get('/agencies/(\d+)/employees/(\d+)/check', 'EmployeesController@checkEmployeeInAgency');
 });
 
-// CORS: API response can be shared with javascript code from origin ALLOW_ORIGIN
-$router->before('GET|POST|PUT|DELETE', '/api/properties(/\d+)?', function() {
+// CORS: Preflight request handler for authentication routes
+$router->options('/auth/.*', function() {
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Methods: POST, GET, PUT, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
     header('Access-Control-Allow-Credentials: true');
 });
 
-// CORS: support for preflight requests (just an example)
-$router->options('/api/products(/\d+)?', function() {
+// CORS: Preflight request handler for API routes
+$router->options('/api/.*', function() {
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
-    header('Access-Control-Allow-Methods: POST, GET, OPTIONS, PUT, DELETE');
+    header('Access-Control-Allow-Methods: POST, GET, PUT, DELETE, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type, Authorization');
     header('Access-Control-Allow-Credentials: true');
 });
