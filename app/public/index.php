@@ -123,6 +123,23 @@ $router->mount('/api', function() use ($router) {
     $router->delete('/employees/(\d+)', 'EmployeesController@deleteByID');
 });
 
+// Employees routes
+$router->mount('/api', function() use ($router) {
+    header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+
+    // Agency Employees
+    $router->get('/agencies/(\d+)/employees', 'EmployeesController@overview');
+    $router->post('/agencies/(\d+)/employees', 'EmployeesController@post');
+    $router->get('/agencies/(\d+)/employees/(\d+)', 'EmployeesController@getByID');
+    $router->delete('/agencies/(\d+)/employees/(\d+)', 'EmployeesController@deleteByID');
+    $router->delete('/agencies/(\d+)/employees', 'EmployeesController@deleteAll');
+
+    // Employee utilities
+    $router->get('/employees/(\d+)/agencies', 'EmployeesController@getAgenciesByEmployee');
+    $router->get('/agencies/(\d+)/employees/count', 'EmployeesController@getEmployeeCount');
+    $router->get('/agencies/(\d+)/employees/(\d+)/check', 'EmployeesController@checkEmployeeInAgency');
+});
+
 // CORS: API response can be shared with javascript code from origin ALLOW_ORIGIN
 $router->before('GET|POST|PUT|DELETE', '/api/properties(/\d+)?', function() {
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
