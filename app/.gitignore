@@ -1,4 +1,5 @@
 vendor
 .env
+.env.dev
 storage/cache
 storage/db.log

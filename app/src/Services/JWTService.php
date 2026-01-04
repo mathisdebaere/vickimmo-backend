@@ -10,21 +10,23 @@ use Firebase\JWT\SignatureInvalidException;
 
 class JWTService
 {
-    static function generateJWTToken(int $userId, string $userName, ?array $rolesArray, string $secretKey, int $seconds = 60 * 60) : string
+    static function generateJWTToken(array $user, string $secretKey, int $seconds = 60) : string
     {
-        $issuedAt = time();
-        $expirationTime = $issuedAt + $seconds; // $seconds = 60 * 60 -> valid for 1 hour
 
+        $expirationTime = time() + $seconds;
+        
         $payload = [
-            'iat' => $issuedAt,
+            'iat' => time(),
             'exp' => $expirationTime,
-            'sub' => $userId,
-            'username' => $userName
+            'sub' => $user['id'],
+            'data' => [
+                'id' => $user['id'],
+                'name' => $user['name'],
+                'email' => $user['email'],
+                'role' => $user['role'] ?? 'user',             
+                'created_at' => date('Y-m-d H:i:s')
+            ]
         ];
-
-        if ($rolesArray !== null) {
-            $payload['roles'] = $rolesArray;
-        }
 
         return JWT::encode($payload, $secretKey, 'HS256');
     }

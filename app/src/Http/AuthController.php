@@ -41,12 +41,12 @@ class AuthController
     
     private function getAccessTokenLifetime(): int
     {
-        return (int)($_ENV['ACCESS_TOKEN_LIFETIME'] ?? 900); // 15 minutes default
+        return (int)($_ENV['ACCESS_TOKEN_LIFETIME'] ?? 30); 
     }
     
     private function getRefreshTokenLifetime(): int
     {
-        return (int)($_ENV['REFRESH_TOKEN_LIFETIME'] ?? 604800); // 7 days default
+        return (int)($_ENV['REFRESH_TOKEN_LIFETIME'] ?? 15); 
     }
 
     public function register(): void
@@ -84,10 +84,14 @@ class AuthController
 
             if ($result === 1) {
                 $userId = $this->getLastInsertId();
-                
+                $user = [
+                    'id' => $userId,
+                    'name' => $name,
+                    'email' => $email,
+                    'role' => $role
+                ];
                 // Generate both access and refresh tokens
-                $tokens = $this->generateTokenPair($userId, $name, $role);
-
+                $tokens = $this->generateTokenPair($user);
                 ApiResponse::success([
                     'message' => 'User registered successfully.',
                     'user' => [
@@ -139,11 +143,7 @@ class AuthController
         }
 
         // Generate both access and refresh tokens
-        $tokens = $this->generateTokenPair(
-            (int)$user['id'],
-            $user['name'],
-            $user['role']
-        );
+        $tokens = $this->generateTokenPair($user);
 
         // Optional: Update last login
         $this->db->executeStatement(
@@ -425,9 +425,7 @@ class AuthController
 
             // Generate new access token (and optionally a new refresh token)
             $accessToken = JWTService::generateJWTToken(
-                (int)$user['id'],
-                $user['name'],
-                [$user['role']],
+                $user,
                 $this->getSecretKey(),
                 $this->getAccessTokenLifetime()
             );
@@ -444,9 +442,7 @@ class AuthController
 
                 // Generate new refresh token
                 $newRefreshToken = JWTService::generateJWTToken(
-                    (int)$user['id'],
-                    $user['name'],
-                    [$user['role']],
+                    $user,
                     $this->getRefreshSecretKey(),
                     $this->getRefreshTokenLifetime()
                 );
@@ -478,26 +474,22 @@ class AuthController
     /**
      * Generate both access and refresh tokens
      */
-    private function generateTokenPair(int $userId, string $name, string $role): array
+    private function generateTokenPair(array $user): array
     {
         $accessToken = JWTService::generateJWTToken(
-            $userId,
-            $name,
-            [$role],
+            $user,
             $this->getSecretKey(),
             $this->getAccessTokenLifetime()
         );
 
         $refreshToken = JWTService::generateJWTToken(
-            $userId,
-            $name,
-            [$role],
+            $user,
             $this->getRefreshSecretKey(),
             $this->getRefreshTokenLifetime()
         );
 
         // Store refresh token in database
-        $this->storeRefreshToken($userId, $refreshToken);
+        $this->storeRefreshToken($user['id'], $refreshToken);
 
         return [
             'accessToken' => $accessToken,
@@ -567,7 +559,7 @@ class AuthController
 
         if (isset($data['role'])) {
             $role = strtolower(trim((string)$data['role']));
-            $validRoles = ['client', 'employee', 'owner', 'admin'];
+            $validRoles = ['client', 'employee', 'admin'];
             if (!in_array($role, $validRoles, true)) {
                 $errors[] = 'Role must be one of: ' . implode(', ', $validRoles);
             }
