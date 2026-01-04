@@ -323,13 +323,14 @@ class AuthController
             return;
         }
 
-        if ($newPassword !== $confirmPassword) {
-            ApiResponse::error('New password and confirmation do not match.', 422);
+        if (!$this->isStrongPassword($newPassword)) {
+            ApiResponse::error('Password does not meet security requirements.', 422);
             return;
         }
 
-        if (mb_strlen($newPassword) < 8) {
-            ApiResponse::error('New password must be at least 8 characters.', 422);
+
+        if ($newPassword !== $confirmPassword) {
+            ApiResponse::error('New password and confirmation do not match.', 422);
             return;
         }
 
@@ -360,6 +361,15 @@ class AuthController
             'message' => 'Password changed successfully. Please log in again.'
         ]);
     }
+
+    private function isStrongPassword(string $password): bool 
+    {
+        return preg_match(
+            '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/',
+            $password
+        ) === 1;
+    }
+
 
     /**
      * Refresh access token using a valid refresh token
@@ -538,9 +548,15 @@ class AuthController
             $errors[] = 'Valid email address is required.';
         }
 
+        // ✅ DEFINE PASSWORD HERE
         $password = isset($data['password']) ? (string)$data['password'] : '';
-        if ($password === '' || mb_strlen($password) < 8) {
-            $errors[] = 'Password must be at least 8 characters.';
+
+        if ($password === '') {
+            $errors[] = 'Password is required.';
+        } else {
+            if (!$this->isStrongPassword($password)) {
+                $errors[] = 'Password must be at least 8 characters and contain uppercase, lowercase, number and special character.';
+            }
         }
 
         if (isset($data['password_confirmation'])) {
@@ -567,6 +583,7 @@ class AuthController
 
         return $errors;
     }
+
 
     private function emailExists(string $email): bool
     {
