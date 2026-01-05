@@ -266,25 +266,38 @@ class EmployeesController
         }
 
         $agencies = $this->db->fetchAllAssociative(
-            'SELECT a.id, a.name, a.email, a.phone, a.address, a.city, a.postal
-             FROM agencies a
-             JOIN agencies_employees ae ON a.id = ae.agency_id
-             WHERE ae.user_id = ?
-             ORDER BY a.name ASC',
+            'SELECT 
+                a.id,
+                a.name,
+                a.email,
+                a.phone,
+                a.description,
+                a.website,
+                a.logo,
+                a.address,
+                a.city,
+                a.postal
+            FROM agencies a
+            JOIN agencies_employees ae ON a.id = ae.agency_id
+            WHERE ae.user_id = ?
+            ORDER BY a.name ASC',
             [$employeeID]
         );
 
         ApiResponse::success([
             'user_id' => $employeeID,
-            'agencies' => array_map(fn($agency) => [
+            'agencies' => array_map(static fn(array $agency): array => [
                 'id' => (int)$agency['id'],
                 'name' => $agency['name'],
                 'email' => $agency['email'],
                 'phone' => $agency['phone'] ?? null,
+                'description' => $agency['description'] ?? null,
+                'website' => $agency['website'] ?? null,
+                'logo_url' => $agency['logo'] ?? null,
                 'address' => $agency['address'] ?? null,
                 'city' => $agency['city'] ?? null,
-                'postal' => $agency['postal'] ?? null
-            ], $agencies)
+                'postal' => $agency['postal'] ?? null,
+            ], $agencies),
         ]);
     }
 
