@@ -9,7 +9,7 @@ class PropertiesController
 {
     protected \Doctrine\DBAL\Connection $db;
     
-    private const UPLOAD_DIR = __DIR__ . '../../public/uploads/properties/';
+    private const UPLOAD_DIR = __DIR__ . '/../../public/uploads/properties/';
     private const MAX_UPLOAD_SIZE = 20971520; // 20MB
     private const ALLOWED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif'];
     
@@ -361,14 +361,15 @@ class PropertiesController
         );
 
         ApiResponse::success([
-            'property_id' => $propertyID,
-            'images' => array_map(fn($img) => [
-                'id' => (int)$img['id'],
-                'image_url' => '/uploads/properties/' . $img['image_path'],
-                'is_main' => (bool)$img['is_main'],
-                'created_at' => $img['created_at']
-            ], $images)
-        ]);
+        'property_id' => $propertyID,
+        'images' => array_map(fn($img) => [
+            'id' => (int)$img['id'],
+            'image_url' => '/uploads/properties/' . $img['image_path'],
+            'is_main' => (bool)$img['is_main'],
+            'created_at' => $img['created_at']
+        ], $images)
+    ]);
+
     }
 
     public function postImg(int $propertyID): void
