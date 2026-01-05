@@ -559,8 +559,8 @@ class AuthController
             }
         }
 
-        if (isset($data['password_confirmation'])) {
-            $passwordConfirmation = (string)$data['password_confirmation'];
+        if (isset($data['password_confirm'])) {
+            $passwordConfirmation = (string)$data['password_confirm'];
             if ($password !== $passwordConfirmation) {
                 $errors[] = 'Password and confirmation do not match.';
             }
