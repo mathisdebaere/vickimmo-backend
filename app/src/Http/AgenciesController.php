@@ -9,7 +9,7 @@ class AgenciesController
 {
     protected \Doctrine\DBAL\Connection $db;
     
-    private const UPLOAD_DIR = __DIR__ . '../../../public/uploads/agencies';
+    private const UPLOAD_DIR = __DIR__ . '/../../public/uploads/agencies/';
     private const MAX_UPLOAD_SIZE = 10485760; // 10MB for logos
     private const ALLOWED_LOGO_EXTENSIONS = ['jpg', 'jpeg', 'png', 'svg', 'webp'];
 
