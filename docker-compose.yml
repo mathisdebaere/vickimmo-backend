@@ -15,7 +15,7 @@ services:
       - "3307:3306"
     volumes:
       - "./docker/mariadb-data:/var/lib/mysql"
-      - "./docker/demo.sql:/docker-entrypoint-initdb.d/dump.sql"
+      - "./docker/immo.sql:/docker-entrypoint-initdb.d/dump.sql"
     environment:
       - MARIADB_ROOT_PASSWORD=Azerty123
       - LANG=C.UTF-8

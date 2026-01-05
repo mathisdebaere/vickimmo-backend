@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS `immo`.`users` (
   `email` VARCHAR(255) NOT NULL,
   `password` VARCHAR(255) NOT NULL,
   `phone` VARCHAR(20) NULL DEFAULT NULL,
-  `role` ENUM('client', 'employee', 'owner', 'admin') NOT NULL DEFAULT 'client',
+  `role` ENUM('client', 'employee', 'admin') NOT NULL DEFAULT 'client',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -94,8 +94,42 @@ CREATE TABLE IF NOT EXISTS `immo`.`properties` (
   `living_area` DECIMAL(20,2) NULL DEFAULT NULL,
   `surface_area` DECIMAL(20,2) NULL DEFAULT NULL,
   `type` ENUM('house', 'apartment', 'land', 'garage', 'business') NOT NULL,
-  `sub_type` VARCHAR(255) NULL DEFAULT NULL,
-  `status` ENUM('for sale', 'for rent', 'sold', 'rented') NOT NULL,
+  `sub_type` ENUM(
+      -- HOUSE
+        'house;terraced house',
+        'house;semi-detached house',
+        'house;detached house',
+        'house;country house',
+        'house;manor house',
+        'house;villa',
+        'house;castle',
+        'house;townhouse',
+        'house;cottage',
+        'apartment;studio',
+        'apartment;duplex',
+        'apartment;triplex',
+        'apartment;penthouse',
+        'land;residential',
+        'land;industrial',
+        'land;commercial',
+        'land;agricultural',
+        'land;recreational',
+        'land;mixed',
+        'business;hotel',
+        'business;restaurant',
+        'business;retail space',
+        'business;office space',
+        'business;industrial space',
+        'business;hospitality space',
+        'business;storage space',
+        'garage;single',
+        'garage;double',
+        'garage;box',
+        'garage;underground',
+        'garage;carport',
+        'garage;parking space'
+    ) DEFAULT NULL,
+  `status` ENUM('for sale', 'for rent','for auction', 'sold', 'rented') NOT NULL,
   `visibility` ENUM('public', 'private', 'archived') NOT NULL DEFAULT 'public',
   `auction` TINYINT(1) NULL DEFAULT '0',
   `epc_label` ENUM('A+', 'A', 'B', 'C', 'D', 'E', 'F') NULL DEFAULT NULL,
@@ -326,6 +360,28 @@ CREATE TABLE IF NOT EXISTS `immo`.`view_history` (
     ON DELETE CASCADE)
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8mb4;
+
+-- -----------------------------------------------------
+-- Table `immo`.`refresh_tokens`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `immo`.`refresh_tokens` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT UNSIGNED NOT NULL,
+  `token` TEXT NOT NULL,
+  `expires_at` DATETIME NOT NULL,
+  `revoked` TINYINT(1) NOT NULL DEFAULT '0',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `user_id` (`user_id` ASC) VISIBLE,
+  INDEX `expires_at` (`expires_at` ASC) VISIBLE,
+  CONSTRAINT `refresh_tokens_ibfk_1`
+    FOREIGN KEY (`user_id`)
+    REFERENCES `immo`.`users` (`id`)
+    ON DELETE CASCADE)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8mb4;
+
 
 
 SET SQL_MODE=@OLD_SQL_MODE;

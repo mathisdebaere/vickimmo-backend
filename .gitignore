@@ -2,3 +2,4 @@
 .idea
 .vscode
 docker/mariadb-data
+node_modules
