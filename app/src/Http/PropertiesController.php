@@ -14,7 +14,7 @@ class PropertiesController
     private const ALLOWED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif'];
     
     private const VALID_TYPES = ['house', 'apartment', 'land', 'garage', 'business'];
-    private const VALID_STATUSES = ['for sale', 'for rent', 'sold', 'rented'];
+    private const VALID_STATUSES = ['for sale', 'for rent', 'for auction', 'sold', 'rented'];
     private const VALID_VISIBILITIES = ['public', 'private', 'archived'];
 
     public function __construct()
@@ -29,9 +29,206 @@ class PropertiesController
 
     public function overview(): void
     {
-        $propertyRows = $this->db->fetchAllAssociative('SELECT * FROM properties');
-        ApiResponse::success($propertyRows);
+        $conditions = [];
+        $params = [];
+
+        /* ─────────────────────────────
+        TEXT / EXACT MATCH FILTERS
+        ───────────────────────────── */
+
+        if (!empty($_GET['title'])) {
+            $conditions[] = 'title LIKE ?';
+            $params[] = '%' . trim($_GET['title']) . '%';
+        }
+
+        if (!empty($_GET['city'])) {
+            $conditions[] = 'city = ?';
+            $params[] = trim($_GET['city']);
+        }
+
+        if (!empty($_GET['postal'])) {
+            $conditions[] = 'postal = ?';
+            $params[] = trim($_GET['postal']);
+        }
+
+        if (!empty($_GET['address'])) {
+            $conditions[] = 'address LIKE ?';
+            $params[] = '%' . trim($_GET['address']) . '%';
+        }
+
+        /* ─────────────────────────────
+        ENUM FILTERS (SAFE)
+        ───────────────────────────── */
+
+        if (!empty($_GET['type'])) {
+            $types = array_filter(
+                array_map('trim', explode(',', $_GET['type'])),
+                fn ($t) => in_array($t, self::VALID_TYPES, true)
+            );
+
+            if (!empty($types)) {
+                $conditions[] = 'type IN (' . implode(',', array_fill(0, count($types), '?')) . ')';
+                array_push($params, ...$types);
+            }
+        }
+
+
+        if (!empty($_GET['status'])) {
+            $statuses = array_filter(
+                array_map('trim', explode(',', $_GET['status'])),
+                fn ($s) => in_array($s, self::VALID_STATUSES, true)
+            );
+
+            if (!empty($statuses)) {
+                $conditions[] = 'status IN (' . implode(',', array_fill(0, count($statuses), '?')) . ')';
+                array_push($params, ...$statuses);
+            }
+        }
+
+
+        if (!empty($_GET['visibility']) && in_array($_GET['visibility'], self::VALID_VISIBILITIES, true)) {
+            $conditions[] = 'visibility = ?';
+            $params[] = $_GET['visibility'];
+        }
+
+        /* ─────────────────────────────
+        NUMERIC EXACT MATCH
+        ───────────────────────────── */
+
+        if (isset($_GET['bedrooms']) && is_numeric($_GET['bedrooms'])) {
+            $conditions[] = 'bedrooms = ?';
+            $params[] = (int)$_GET['bedrooms'];
+        }
+
+        if (isset($_GET['bathrooms']) && is_numeric($_GET['bathrooms'])) {
+            $conditions[] = 'bathrooms = ?';
+            $params[] = (int)$_GET['bathrooms'];
+        }
+
+        if (isset($_GET['floors']) && is_numeric($_GET['floors'])) {
+            $conditions[] = 'floors = ?';
+            $params[] = (int)$_GET['floors'];
+        }
+
+        if (isset($_GET['agency_id']) && is_numeric($_GET['agency_id'])) {
+            $conditions[] = 'agency_id = ?';
+            $params[] = (int)$_GET['agency_id'];
+        }
+
+        /* ─────────────────────────────
+        RANGE FILTERS
+        ───────────────────────────── */
+
+        if (isset($_GET['price_min']) && is_numeric($_GET['price_min'])) {
+            $conditions[] = 'price >= ?';
+            $params[] = (float)$_GET['price_min'];
+        }
+
+        if (isset($_GET['price_max']) && is_numeric($_GET['price_max'])) {
+            $conditions[] = 'price <= ?';
+            $params[] = (float)$_GET['price_max'];
+        }
+
+        if (isset($_GET['living_area_min']) && is_numeric($_GET['living_area_min'])) {
+            $conditions[] = 'living_area >= ?';
+            $params[] = (float)$_GET['living_area_min'];
+        }
+
+        if (isset($_GET['living_area_max']) && is_numeric($_GET['living_area_max'])) {
+            $conditions[] = 'living_area <= ?';
+            $params[] = (float)$_GET['living_area_max'];
+        }
+
+        if (isset($_GET['surface_area_min']) && is_numeric($_GET['surface_area_min'])) {
+            $conditions[] = 'surface_area >= ?';
+            $params[] = (float)$_GET['surface_area_min'];
+        }
+
+        if (isset($_GET['surface_area_max']) && is_numeric($_GET['surface_area_max'])) {
+            $conditions[] = 'surface_area <= ?';
+            $params[] = (float)$_GET['surface_area_max'];
+        }
+
+        if (isset($_GET['build_year_min']) && is_numeric($_GET['build_year_min'])) {
+            $conditions[] = 'build_year >= ?';
+            $params[] = (int)$_GET['build_year_min'];
+        }
+
+        if (isset($_GET['build_year_max']) && is_numeric($_GET['build_year_max'])) {
+            $conditions[] = 'build_year <= ?';
+            $params[] = (int)$_GET['build_year_max'];
+        }
+
+        /* ─────────────────────────────
+        EPC FILTERS
+        ───────────────────────────── */
+
+        if (!empty($_GET['epc_label'])) {
+            $labels = array_map(
+                'strtoupper',
+                array_map('trim', explode(',', $_GET['epc_label']))
+            );
+
+
+            $conditions[] = 'epc_label IN (' . implode(',', array_fill(0, count($labels), '?')) . ')';
+            array_push($params, ...$labels);
+        }
+
+
+        if (isset($_GET['epc_value_max']) && is_numeric($_GET['epc_value_max'])) {
+            $conditions[] = 'epc_value <= ?';
+            $params[] = (int)$_GET['epc_value_max'];
+        }
+
+        /* ─────────────────────────────
+        BOOLEAN FILTERS
+        ───────────────────────────── */
+
+        if (isset($_GET['auction'])) {
+            $conditions[] = 'auction = ?';
+            $params[] = (int)(bool)$_GET['auction'];
+        }
+
+        if (isset($_GET['availability'])) {
+            $conditions[] = 'availability = ?';
+            $params[] = (int)(bool)$_GET['availability'];
+        }
+
+        /* ─────────────────────────────
+        BASE QUERY
+        ───────────────────────────── */
+
+        $sql = 'SELECT * FROM properties';
+
+        if (!empty($conditions)) {
+            $sql .= ' WHERE ' . implode(' AND ', $conditions);
+        }
+
+        /* ─────────────────────────────
+        SORTING (SAFE)
+        ───────────────────────────── */
+
+        if (!empty($_GET['sort'])) {
+            $allowedSorts = [
+                'price', 'created_at', 'updated_at',
+                'living_area', 'surface_area', 'build_year'
+            ];
+
+            $direction = ($_GET['direction'] ?? 'asc') === 'desc'
+                ? 'DESC'
+                : 'ASC';
+
+            if (in_array($_GET['sort'], $allowedSorts, true)) {
+                $sql .= " ORDER BY {$_GET['sort']} $direction";
+            }
+        }
+
+        $properties = $this->db->fetchAllAssociative($sql, $params);
+
+        ApiResponse::success($properties);
     }
+
+
 
     public function post(): void
     {
