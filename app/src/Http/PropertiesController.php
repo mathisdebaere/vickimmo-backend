@@ -89,6 +89,7 @@ class PropertiesController
             $params[] = $_GET['visibility'];
         }
 
+
         /* ─────────────────────────────
         NUMERIC EXACT MATCH
         ───────────────────────────── */
@@ -224,7 +225,37 @@ class PropertiesController
             }
         }
 
+        /* ─────────────────────────────
+        LIMIT & OFFSET
+        ───────────────────────────── */
+        $limit = null;
+        $offset = null;
+
+        if (isset($_GET['limit']) && is_numeric($_GET['limit'])) {
+            $limit = max(1, min((int)$_GET['limit'], 100));
+        }
+
+        if (isset($_GET['offset']) && is_numeric($_GET['offset'])) {
+            $offset = max(0, (int)$_GET['offset']);
+        }
+
+        if ($limit !== null) {
+            $sql .= " LIMIT $limit";
+            
+            if ($offset !== null) {
+                $sql .= " OFFSET $offset";
+            }
+        }
+    
+
         $properties = $this->db->fetchAllAssociative($sql, $params);
+
+        // Get total count for pagination (without limit/offset)
+        $countSql = 'SELECT COUNT(*) as total FROM properties p';
+        if (!empty($conditions)) {
+            $countSql .= ' WHERE ' . implode(' AND ', $conditions);
+        }
+        $totalCount = (int)$this->db->fetchOne($countSql, $params);
 
         // Add full image URLs
         foreach ($properties as &$property) {
@@ -236,8 +267,18 @@ class PropertiesController
             unset($property['main_image_path']); // Remove internal field
         }
 
-        ApiResponse::success($properties);
+        // Return with pagination metadata
+        ApiResponse::success([
+            'data' => $properties,
+            'pagination' => [
+                'total' => $totalCount,
+                'limit' => $limit,
+                'offset' => $offset ?? 0,
+                'returned' => count($properties)
+            ]
+        ]);
     }
+
 
     public function post(): void
     {
