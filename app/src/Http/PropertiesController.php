@@ -37,22 +37,22 @@ class PropertiesController
         ───────────────────────────── */
 
         if (!empty($_GET['title'])) {
-            $conditions[] = 'title LIKE ?';
+            $conditions[] = 'p.title LIKE ?';
             $params[] = '%' . trim($_GET['title']) . '%';
         }
 
         if (!empty($_GET['city'])) {
-            $conditions[] = 'city = ?';
+            $conditions[] = 'p.city = ?';
             $params[] = trim($_GET['city']);
         }
 
         if (!empty($_GET['postal'])) {
-            $conditions[] = 'postal = ?';
+            $conditions[] = 'p.postal = ?';
             $params[] = trim($_GET['postal']);
         }
 
         if (!empty($_GET['address'])) {
-            $conditions[] = 'address LIKE ?';
+            $conditions[] = 'p.address LIKE ?';
             $params[] = '%' . trim($_GET['address']) . '%';
         }
 
@@ -67,11 +67,10 @@ class PropertiesController
             );
 
             if (!empty($types)) {
-                $conditions[] = 'type IN (' . implode(',', array_fill(0, count($types), '?')) . ')';
+                $conditions[] = 'p.type IN (' . implode(',', array_fill(0, count($types), '?')) . ')';
                 array_push($params, ...$types);
             }
         }
-
 
         if (!empty($_GET['status'])) {
             $statuses = array_filter(
@@ -80,14 +79,13 @@ class PropertiesController
             );
 
             if (!empty($statuses)) {
-                $conditions[] = 'status IN (' . implode(',', array_fill(0, count($statuses), '?')) . ')';
+                $conditions[] = 'p.status IN (' . implode(',', array_fill(0, count($statuses), '?')) . ')';
                 array_push($params, ...$statuses);
             }
         }
 
-
         if (!empty($_GET['visibility']) && in_array($_GET['visibility'], self::VALID_VISIBILITIES, true)) {
-            $conditions[] = 'visibility = ?';
+            $conditions[] = 'p.visibility = ?';
             $params[] = $_GET['visibility'];
         }
 
@@ -96,22 +94,22 @@ class PropertiesController
         ───────────────────────────── */
 
         if (isset($_GET['bedrooms']) && is_numeric($_GET['bedrooms'])) {
-            $conditions[] = 'bedrooms = ?';
+            $conditions[] = 'p.bedrooms = ?';
             $params[] = (int)$_GET['bedrooms'];
         }
 
         if (isset($_GET['bathrooms']) && is_numeric($_GET['bathrooms'])) {
-            $conditions[] = 'bathrooms = ?';
+            $conditions[] = 'p.bathrooms = ?';
             $params[] = (int)$_GET['bathrooms'];
         }
 
         if (isset($_GET['floors']) && is_numeric($_GET['floors'])) {
-            $conditions[] = 'floors = ?';
+            $conditions[] = 'p.floors = ?';
             $params[] = (int)$_GET['floors'];
         }
 
         if (isset($_GET['agency_id']) && is_numeric($_GET['agency_id'])) {
-            $conditions[] = 'agency_id = ?';
+            $conditions[] = 'p.agency_id = ?';
             $params[] = (int)$_GET['agency_id'];
         }
 
@@ -120,42 +118,42 @@ class PropertiesController
         ───────────────────────────── */
 
         if (isset($_GET['price_min']) && is_numeric($_GET['price_min'])) {
-            $conditions[] = 'price >= ?';
+            $conditions[] = 'p.price >= ?';
             $params[] = (float)$_GET['price_min'];
         }
 
         if (isset($_GET['price_max']) && is_numeric($_GET['price_max'])) {
-            $conditions[] = 'price <= ?';
+            $conditions[] = 'p.price <= ?';
             $params[] = (float)$_GET['price_max'];
         }
 
         if (isset($_GET['living_area_min']) && is_numeric($_GET['living_area_min'])) {
-            $conditions[] = 'living_area >= ?';
+            $conditions[] = 'p.living_area >= ?';
             $params[] = (float)$_GET['living_area_min'];
         }
 
         if (isset($_GET['living_area_max']) && is_numeric($_GET['living_area_max'])) {
-            $conditions[] = 'living_area <= ?';
+            $conditions[] = 'p.living_area <= ?';
             $params[] = (float)$_GET['living_area_max'];
         }
 
         if (isset($_GET['surface_area_min']) && is_numeric($_GET['surface_area_min'])) {
-            $conditions[] = 'surface_area >= ?';
+            $conditions[] = 'p.surface_area >= ?';
             $params[] = (float)$_GET['surface_area_min'];
         }
 
         if (isset($_GET['surface_area_max']) && is_numeric($_GET['surface_area_max'])) {
-            $conditions[] = 'surface_area <= ?';
+            $conditions[] = 'p.surface_area <= ?';
             $params[] = (float)$_GET['surface_area_max'];
         }
 
         if (isset($_GET['build_year_min']) && is_numeric($_GET['build_year_min'])) {
-            $conditions[] = 'build_year >= ?';
+            $conditions[] = 'p.build_year >= ?';
             $params[] = (int)$_GET['build_year_min'];
         }
 
         if (isset($_GET['build_year_max']) && is_numeric($_GET['build_year_max'])) {
-            $conditions[] = 'build_year <= ?';
+            $conditions[] = 'p.build_year <= ?';
             $params[] = (int)$_GET['build_year_max'];
         }
 
@@ -169,14 +167,12 @@ class PropertiesController
                 array_map('trim', explode(',', $_GET['epc_label']))
             );
 
-
-            $conditions[] = 'epc_label IN (' . implode(',', array_fill(0, count($labels), '?')) . ')';
+            $conditions[] = 'p.epc_label IN (' . implode(',', array_fill(0, count($labels), '?')) . ')';
             array_push($params, ...$labels);
         }
 
-
         if (isset($_GET['epc_value_max']) && is_numeric($_GET['epc_value_max'])) {
-            $conditions[] = 'epc_value <= ?';
+            $conditions[] = 'p.epc_value <= ?';
             $params[] = (int)$_GET['epc_value_max'];
         }
 
@@ -185,20 +181,25 @@ class PropertiesController
         ───────────────────────────── */
 
         if (isset($_GET['auction'])) {
-            $conditions[] = 'auction = ?';
+            $conditions[] = 'p.auction = ?';
             $params[] = (int)(bool)$_GET['auction'];
         }
 
         if (isset($_GET['availability'])) {
-            $conditions[] = 'availability = ?';
+            $conditions[] = 'p.availability = ?';
             $params[] = (int)(bool)$_GET['availability'];
         }
 
         /* ─────────────────────────────
-        BASE QUERY
+        BASE QUERY - NOW WITH JOINS
         ───────────────────────────── */
 
-        $sql = 'SELECT * FROM properties';
+        $sql = 'SELECT p.*, 
+                    a.name AS agency_name,
+                    pi.image_path AS main_image_path
+                FROM properties p
+                LEFT JOIN agencies a ON a.id = p.agency_id
+                LEFT JOIN property_images pi ON pi.property_id = p.id AND pi.is_main = 1';
 
         if (!empty($conditions)) {
             $sql .= ' WHERE ' . implode(' AND ', $conditions);
@@ -219,16 +220,24 @@ class PropertiesController
                 : 'ASC';
 
             if (in_array($_GET['sort'], $allowedSorts, true)) {
-                $sql .= " ORDER BY {$_GET['sort']} $direction";
+                $sql .= " ORDER BY p.{$_GET['sort']} $direction";
             }
         }
 
         $properties = $this->db->fetchAllAssociative($sql, $params);
 
+        // Add full image URLs
+        foreach ($properties as &$property) {
+            if (!empty($property['main_image_path'])) {
+                $property['main_image_url'] = '/uploads/properties/' . $property['main_image_path'];
+            } else {
+                $property['main_image_url'] = null;
+            }
+            unset($property['main_image_path']); // Remove internal field
+        }
+
         ApiResponse::success($properties);
     }
-
-
 
     public function post(): void
     {

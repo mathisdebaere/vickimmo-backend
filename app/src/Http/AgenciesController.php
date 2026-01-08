@@ -49,22 +49,21 @@ class AgenciesController
             ORDER BY a.name ASC'
         );
 
-
         ApiResponse::success([
             'agencies' => array_map(function ($agency) {
-                return array_merge(
-                    $this->formatAgencyResponse($agency),
-                    [
-                        'property_count' => (int)$agency['property_count'],
-                        'review_count' => (int)$agency['review_count'],
-                        'avg_rating' => $agency['avg_rating'] !== null
-                            ? (float)$agency['avg_rating']
-                            : null,
-                    ]
-                );
+                // Format the response using the existing method
+                $formatted = $this->formatAgencyResponse($agency);
+                
+                // Add the statistics
+                $formatted['property_count'] = (int)$agency['property_count'];
+                $formatted['review_count'] = (int)$agency['review_count'];
+                $formatted['avg_rating'] = $agency['avg_rating'] !== null
+                    ? (float)$agency['avg_rating']
+                    : null;
+                
+                return $formatted;
             }, $agencies)
         ]);
-
     }
 
     public function post(): void
