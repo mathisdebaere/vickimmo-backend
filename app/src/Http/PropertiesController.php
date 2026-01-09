@@ -314,6 +314,16 @@ class PropertiesController
         }
     }
 
+    public function getPropertiesByAgency(int $agencyID): void
+    {
+        $properties = $this->db->fetchAllAssociative(
+            'SELECT * FROM properties WHERE agency_id = ? ORDER BY created_at DESC',
+            [$agencyID]
+        );
+
+        ApiResponse::success($properties);
+    }
+
     public function getByID(int $propertyID): void
     {
         $propertyRow = $this->db->fetchAssociative(
