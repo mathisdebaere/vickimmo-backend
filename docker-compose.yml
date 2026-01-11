@@ -44,3 +44,23 @@ services:
     volumes:
       - "./app:/home/ubuntu"
     restart: "no"
+  websockets:
+    build: docker
+    command: php bin/websockets/server.php
+    ports:
+      - "8081:80"
+    volumes:
+      - "./app:/var/www"
+      - "./docker/php.ini:/usr/local/etc/php/php.ini"
+    links:
+      - mariadb
+    depends_on:
+      composer:
+        condition: service_completed_successfully
+      php-web:
+        condition: service_started
+    environment:
+      - DB_HOST=mariadb
+      - DB_NAME=immo
+      - DB_USER=root
+      - DB_PASS=Azerty123
