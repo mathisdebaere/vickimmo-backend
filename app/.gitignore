@@ -3,3 +3,4 @@ vendor
 .env.dev
 storage/cache
 storage/db.log
+public/uploads
