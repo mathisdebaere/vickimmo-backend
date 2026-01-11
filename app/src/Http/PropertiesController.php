@@ -318,12 +318,17 @@ class PropertiesController
     {
         $properties = $this->db->fetchAllAssociative(
             'SELECT p.*, 
-                    a.name AS agency_name, pi.image_path FROM properties p INNER JOIN property_images pi ON pi.property_id = p.id AND pi.is_main = 1 INNER JOIN agencies a ON a.id = p.agency_id WHERE p.agency_id = ? ORDER BY p.created_at DESC',
+                    a.name AS agency_name, pi.image_path 
+            FROM properties p 
+            LEFT JOIN property_images pi ON pi.property_id = p.id AND pi.is_main = 1 
+            INNER JOIN agencies a ON a.id = p.agency_id 
+            WHERE p.agency_id = ? 
+            ORDER BY p.created_at DESC',
             [$agencyID]
         );
 
         foreach ($properties as &$property) {
-            if (empty($property['main_image_url'])) {
+            if (!empty($property['image_path'])) {
                 $property['main_image_url'] = '/uploads/properties/' . $property['image_path'];
             } else {
                 $property['main_image_url'] = '/uploads/properties/property-placeholder.png';
