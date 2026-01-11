@@ -779,6 +779,17 @@ class PropertiesController
 
     private function preparePropertyData(array $data): array
     {
+        $allowedFields = [
+            'title', 'description', 'agency_id', 'address', 'postal', 'city', 'price',
+            'build_year', 'bedrooms', 'bathrooms', 'living_area', 'surface_area', 'type',
+            'sub_type', 'status', 'visibility', 'auction', 'epc_label', 'epc_value', 'floors', 'availability'
+        ];
+        
+        $unexpectedFields = array_diff(array_keys($data), $allowedFields);
+        if (!empty($unexpectedFields)) {
+            ApiResponse::error('Unexpected fields detected: ' . implode(', ', $unexpectedFields), 400);
+        }
+        
         return [
             'title' => trim((string)$data['title']),
             'description' => trim((string)$data['description']),
@@ -811,6 +822,11 @@ class PropertiesController
             'build_year', 'bedrooms', 'bathrooms', 'living_area', 'surface_area', 'type',
             'sub_type', 'status', 'visibility', 'auction', 'epc_label', 'epc_value', 'floors', 'availability'
         ];
+        
+        $unexpectedFields = array_diff(array_keys($data), $allowedFields);
+        if (!empty($unexpectedFields)) {
+            ApiResponse::error('Unexpected fields detected: ' . implode(', ', $unexpectedFields), 400);
+        }
 
         $updateData = [];
 
@@ -821,7 +837,6 @@ class PropertiesController
 
             $value = $data[$field];
 
-            // Validate and normalize enum fields
             if ($field === 'type') {
                 $value = strtolower(trim((string)$value));
                 if (!in_array($value, self::VALID_TYPES, true)) continue;
@@ -837,7 +852,6 @@ class PropertiesController
                 if (!in_array($value, self::VALID_VISIBILITIES, true)) continue;
             }
 
-            // Type casting
             if (in_array($field, ['auction', 'availability'])) {
                 $value = (int)(bool)$value;
             } elseif (in_array($field, ['price', 'living_area', 'surface_area'])) {
@@ -978,7 +992,6 @@ class PropertiesController
 
         if (file_exists($filePath)) {
             if (!unlink($filePath)) {
-                // Log error but don't fail the operation
                 error_log("Failed to delete image file: $filePath");
             }
         }

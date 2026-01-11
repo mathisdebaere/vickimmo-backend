@@ -575,6 +575,13 @@ class AgenciesController
 
     private function prepareAgencyData(array $data): array
     {
+        $allowedFields = ['name', 'phone', 'email', 'description', 'address', 'city', 'postal', 'website', 'logo'];
+        
+        $unexpectedFields = array_diff(array_keys($data), $allowedFields);
+        if (!empty($unexpectedFields)) {
+            ApiResponse::error('Unexpected fields detected: ' . implode(', ', $unexpectedFields), 400);
+        }
+        
         return [
             'name' => trim((string)$data['name']),
             'phone' => isset($data['phone']) ? trim((string)$data['phone']) : null,
@@ -584,13 +591,19 @@ class AgenciesController
             'city' => trim((string)$data['city']),
             'postal' => trim((string)$data['postal']),
             'website' => isset($data['website']) ? trim((string)$data['website']) : null,
-            'logo' => null, // Logo is uploaded separately
+            'logo' => null, 
         ];
     }
 
     private function prepareUpdateData(array $data): array
     {
         $allowedFields = ['name', 'phone', 'email', 'description', 'address', 'city', 'postal', 'website'];
+        
+        $unexpectedFields = array_diff(array_keys($data), $allowedFields);
+        if (!empty($unexpectedFields)) {
+            ApiResponse::error('Unexpected fields detected: ' . implode(', ', $unexpectedFields), 400);
+        }
+        
         $updateData = [];
 
         foreach ($allowedFields as $field) {
