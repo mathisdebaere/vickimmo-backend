@@ -25,8 +25,21 @@ class AgenciesController
 
     public function overview(): void
     {
-        $agencies = $this->db->fetchAllAssociative(
-            'SELECT 
+        $conditions = [];
+        $params = [];
+
+        if (!empty($_GET['search'])) {
+            $searchTerm = '%' . $_GET['search'] . '%';
+            $conditions[] = '(a.name LIKE ? OR a.city LIKE ? OR a.description LIKE ?)';
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+        }
+
+        /* ─────────────────────────────
+        BASE QUERY
+        ───────────────────────────── */
+        $sql = 'SELECT 
                 a.id,
                 a.name,
                 a.phone,
@@ -44,10 +57,62 @@ class AgenciesController
                 ROUND(AVG(r.rating), 2) AS avg_rating
             FROM agencies a
             LEFT JOIN properties p ON p.agency_id = a.id
-            LEFT JOIN reviews r ON r.agency_id = a.id
-            GROUP BY a.id
-            ORDER BY a.name ASC'
-        );
+            LEFT JOIN reviews r ON r.agency_id = a.id';
+
+        if (!empty($conditions)) {
+            $sql .= ' WHERE ' . implode(' AND ', $conditions);
+        }
+
+        $sql .= ' GROUP BY a.id';
+
+        /* ─────────────────────────────
+        SORTING
+        ───────────────────────────── */
+        if (!empty($_GET['sort'])) {
+            $allowedSorts = ['rating', 'name', 'created_at'];
+            $direction = ($_GET['direction'] ?? 'asc') === 'desc' ? 'DESC' : 'ASC';
+
+            if (in_array($_GET['sort'], $allowedSorts, true)) {
+                if ($_GET['sort'] === 'rating') {
+                    $sql .= " ORDER BY avg_rating $direction";
+                } else {
+                    $sql .= " ORDER BY a.{$_GET['sort']} $direction";
+                }
+            }
+        } else {
+            $sql .= ' ORDER BY a.name ASC';
+        }
+
+        /* ─────────────────────────────
+        LIMIT & OFFSET
+        ───────────────────────────── */
+        $limit = null;
+        $offset = null;
+
+        if (isset($_GET['limit']) && is_numeric($_GET['limit'])) {
+            $limit = max(1, min((int)$_GET['limit'], 100));
+        }
+
+        if (isset($_GET['offset']) && is_numeric($_GET['offset'])) {
+            $offset = max(0, (int)$_GET['offset']);
+        }
+
+        if ($limit !== null) {
+            $sql .= " LIMIT $limit";
+            
+            if ($offset !== null) {
+                $sql .= " OFFSET $offset";
+            }
+        }
+
+        $agencies = $this->db->fetchAllAssociative($sql, $params);
+
+        // Get total count for pagination (with search filter applied)
+        $countSql = 'SELECT COUNT(*) as total FROM agencies a';
+        if (!empty($conditions)) {
+            $countSql .= ' WHERE ' . implode(' AND ', $conditions);
+        }
+        $totalCount = (int)$this->db->fetchOne($countSql, $params);
 
         ApiResponse::success([
             'agencies' => array_map(function ($agency) {
@@ -62,7 +127,13 @@ class AgenciesController
                     : null;
                 
                 return $formatted;
-            }, $agencies)
+            }, $agencies),
+            'pagination' => [
+                'total' => $totalCount,
+                'limit' => $limit,
+                'offset' => $offset ?? 0,
+                'returned' => count($agencies)
+            ]
         ]);
     }
 
