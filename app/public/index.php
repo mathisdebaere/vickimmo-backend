@@ -44,25 +44,24 @@ $router->mount('/api', function() use ($router) {
     header('Access-Control-Allow-Credentials: true');
 
     // Auctions
-    $router->get('/auctions', 'AuctionController@overview');
-    $router->post('/auctions', 'AuctionController@post');
-    $router->get('/auctions/(\d+)', 'AuctionController@getByID');
-    $router->put('/auctions/(\d+)', 'AuctionController@putByID');
-    $router->delete('/auctions/(\d+)', 'AuctionController@deleteByID');
-
+    $router->get('/auctions', 'AuctionsController@overview');
+    $router->post('/auctions', 'AuctionsController@post');
+    $router->get('/auctions/(\d+)', 'AuctionsController@getByID');
+    $router->put('/auctions/(\d+)', 'AuctionsController@putByID');
+    $router->delete('/auctions/(\d+)', 'AuctionsController@deleteByID');
     // Auction status filters
-    $router->get('/auctions/status/active', 'AuctionController@getActiveAuctions');
-    $router->get('/auctions/status/upcoming', 'AuctionController@getUpcomingAuctions');
-    $router->get('/auctions/status/ended', 'AuctionController@getEndedAuctions');
+    $router->get('/auctions/status/active', 'AuctionsController@getActiveAuctions');
+    $router->get('/auctions/status/upcoming', 'AuctionsController@getUpcomingAuctions');
+    $router->get('/auctions/status/ended', 'AuctionsController@getEndedAuctions');
 
     // Property auctions
-    $router->get('/properties/(\d+)/auctions', 'AuctionController@getAuctionsByProperty');
+    $router->get('/properties/(\d+)/auctions', 'AuctionsController@getAuctionsByProperty');
 
     // Bids
-    $router->get('/auctions/(\d+)/bids', 'AuctionController@getAllBids');
-    $router->post('/auctions/(\d+)/bids', 'AuctionController@postBid');
-    $router->delete('/auctions/(\d+)/bids/(\d+)', 'AuctionController@deleteBid');
-    $router->delete('/auctions/(\d+)/bids', 'AuctionController@deleteAllBids');
+    $router->get('/auctions/(\d+)/bids', 'AuctionsController@getAllBids');
+    $router->post('/auctions/(\d+)/bids', 'AuctionsController@postBid');
+    $router->delete('/auctions/(\d+)/bids/(\d+)', 'AuctionsController@deleteBid');
+    $router->delete('/auctions/(\d+)/bids', 'AuctionsController@deleteAllBids');
 });
 
 // Authentication routes
