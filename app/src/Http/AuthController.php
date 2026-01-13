@@ -452,6 +452,13 @@ class AuthController extends BaseController
             [strtolower(trim($email))]
         );
     }
+    private function isStrongPassword(string $password): bool 
+    {
+        return preg_match(
+            '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/',
+            $password
+        ) === 1;
+    }
 
     private function validateRegistrationData(array $data): array
     {

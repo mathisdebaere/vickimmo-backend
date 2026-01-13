@@ -528,7 +528,6 @@ class AgenciesController extends BaseController
             }
         }
 
-        // Validate email format if provided (for both POST and PUT)
         if (isset($data['email'])) {
             $email = trim((string)$data['email']);
             if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -573,7 +572,7 @@ class AgenciesController extends BaseController
 
     private function prepareUpdateData(array $data): array
     {
-        
+        $allowedFields = ['name', 'phone', 'email', 'description', 'address', 'city', 'postal', 'website'];
         $updateData = [];
 
         foreach ($allowedFields as $field) {
@@ -711,5 +710,20 @@ class AgenciesController extends BaseController
                 error_log("Failed to delete logo file: $filePath");
             }
         }
+    }
+
+    private function validatePhone(string $phone): bool
+    {
+        return preg_match('/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/', $phone) === 1;
+    }
+
+    private function validateUrl(string $url): bool
+    {
+        return filter_var($url, FILTER_VALIDATE_URL) !== false;
+    }
+
+    private function validateEmail(string $email): bool
+    {
+        return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
     }
 }

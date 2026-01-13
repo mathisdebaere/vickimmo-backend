@@ -212,34 +212,25 @@ class EmployeesController extends BaseController
                 [$agencyID]
             );
 
-            // Optimize: Batch check which users are no longer employees at any agency
-            if (!empty($employees)) {
-                $userIDs = array_column($employees, 'user_id');
+            foreach ($employees as $emp) {
+                $userID = (int)$emp['user_id'];
                 
-                // Find users who are no longer employees at any agency
-                $usersWithNoAgencies = $this->db->fetchAllAssociative(
-                    'SELECT u.id, u.role 
-                     FROM users u
-                     WHERE u.id IN (?) 
-                     AND NOT EXISTS (
-                         SELECT 1 FROM agencies_employees ae WHERE ae.user_id = u.id
-                     )
-                     AND u.role = ?',
-                    [$userIDs, 'employee'],
-                    [\Doctrine\DBAL\Connection::PARAM_INT_ARRAY, \Doctrine\DBAL\ParameterType::STRING]
+                $otherAgencies = $this->db->fetchAssociative(
+                    'SELECT COUNT(*) as count FROM agencies_employees WHERE user_id = ?',
+                    [$userID]
                 );
 
-                // Update roles in batch
-                if (!empty($usersWithNoAgencies)) {
-                    $updateIDs = array_column($usersWithNoAgencies, 'id');
-                    $this->db->executeStatement(
-                        'UPDATE users SET role = ? WHERE id IN (?)',
-                        ['client', $updateIDs],
-                        [\Doctrine\DBAL\ParameterType::STRING, \Doctrine\DBAL\Connection::PARAM_INT_ARRAY]
-                    );
+                if ((int)$otherAgencies['count'] === 0) {
+                    $currentRole = $this->getUserRole($userID);
+                    if ($currentRole === 'employee') {
+                        $this->db->executeStatement(
+                            'UPDATE users SET role = ? WHERE id = ?',
+                            ['client', $userID]
+                        );
+                    }
                 }
             }
-
+            
             $this->db->commit();
 
             ApiResponse::success([

@@ -4,7 +4,7 @@ namespace Http;
 
 use \Services\ApiResponse;
 
-class AuctionsController extends BaseController
+class AuctionController extends BaseController
 {
     private const VALID_AUCTION_STATUSES = ['upcoming', 'active', 'ended'];
 

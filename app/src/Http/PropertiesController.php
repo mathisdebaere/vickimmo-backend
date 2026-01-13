@@ -741,6 +741,11 @@ class PropertiesController extends BaseController
 
     private function prepareUpdateData(array $data): array
     {
+        $allowedFields = [
+            'title', 'description', 'agency_id', 'address', 'postal', 'city', 'price',
+            'build_year', 'bedrooms', 'bathrooms', 'living_area', 'surface_area', 'type',
+            'sub_type', 'status', 'visibility', 'auction', 'epc_label', 'epc_value', 'floors', 'availability'
+        ];
 
         $updateData = [];
 
