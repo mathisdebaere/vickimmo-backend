@@ -3,12 +3,9 @@
 namespace Http;
 
 use \Services\ApiResponse;
-use \Services\DatabaseConnector;
 
-class PropertiesController
+class PropertiesController extends BaseController
 {
-    protected \Doctrine\DBAL\Connection $db;
-    
     private const UPLOAD_DIR = __DIR__ . '/../../public/uploads/properties/';
     private const MAX_UPLOAD_SIZE = 20971520; // 20MB
     private const ALLOWED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif'];
@@ -16,16 +13,6 @@ class PropertiesController
     private const VALID_TYPES = ['house', 'apartment', 'land', 'garage', 'business'];
     private const VALID_STATUSES = ['for sale', 'for rent', 'for auction', 'sold', 'rented'];
     private const VALID_VISIBILITIES = ['public', 'private', 'archived'];
-
-    public function __construct()
-    {
-        $this->db = DatabaseConnector::getConnection();
-    }
-
-    public function methodNotAllowed(): void
-    {
-        ApiResponse::error('HTTP request method ' . $_SERVER['REQUEST_METHOD'] . ' not allowed.', 405);
-    }
 
     public function overview(): void
     {
@@ -37,22 +24,22 @@ class PropertiesController
         ───────────────────────────── */
 
         if (!empty($_GET['title'])) {
-            $conditions[] = 'title LIKE ?';
+            $conditions[] = 'p.title LIKE ?';
             $params[] = '%' . trim($_GET['title']) . '%';
         }
 
         if (!empty($_GET['city'])) {
-            $conditions[] = 'city = ?';
+            $conditions[] = 'p.city = ?';
             $params[] = trim($_GET['city']);
         }
 
         if (!empty($_GET['postal'])) {
-            $conditions[] = 'postal = ?';
+            $conditions[] = 'p.postal = ?';
             $params[] = trim($_GET['postal']);
         }
 
         if (!empty($_GET['address'])) {
-            $conditions[] = 'address LIKE ?';
+            $conditions[] = 'p.address LIKE ?';
             $params[] = '%' . trim($_GET['address']) . '%';
         }
 
@@ -67,11 +54,10 @@ class PropertiesController
             );
 
             if (!empty($types)) {
-                $conditions[] = 'type IN (' . implode(',', array_fill(0, count($types), '?')) . ')';
+                $conditions[] = 'p.type IN (' . implode(',', array_fill(0, count($types), '?')) . ')';
                 array_push($params, ...$types);
             }
         }
-
 
         if (!empty($_GET['status'])) {
             $statuses = array_filter(
@@ -80,38 +66,38 @@ class PropertiesController
             );
 
             if (!empty($statuses)) {
-                $conditions[] = 'status IN (' . implode(',', array_fill(0, count($statuses), '?')) . ')';
+                $conditions[] = 'p.status IN (' . implode(',', array_fill(0, count($statuses), '?')) . ')';
                 array_push($params, ...$statuses);
             }
         }
 
-
         if (!empty($_GET['visibility']) && in_array($_GET['visibility'], self::VALID_VISIBILITIES, true)) {
-            $conditions[] = 'visibility = ?';
+            $conditions[] = 'p.visibility = ?';
             $params[] = $_GET['visibility'];
         }
+
 
         /* ─────────────────────────────
         NUMERIC EXACT MATCH
         ───────────────────────────── */
 
         if (isset($_GET['bedrooms']) && is_numeric($_GET['bedrooms'])) {
-            $conditions[] = 'bedrooms = ?';
+            $conditions[] = 'p.bedrooms = ?';
             $params[] = (int)$_GET['bedrooms'];
         }
 
         if (isset($_GET['bathrooms']) && is_numeric($_GET['bathrooms'])) {
-            $conditions[] = 'bathrooms = ?';
+            $conditions[] = 'p.bathrooms = ?';
             $params[] = (int)$_GET['bathrooms'];
         }
 
         if (isset($_GET['floors']) && is_numeric($_GET['floors'])) {
-            $conditions[] = 'floors = ?';
+            $conditions[] = 'p.floors = ?';
             $params[] = (int)$_GET['floors'];
         }
 
         if (isset($_GET['agency_id']) && is_numeric($_GET['agency_id'])) {
-            $conditions[] = 'agency_id = ?';
+            $conditions[] = 'p.agency_id = ?';
             $params[] = (int)$_GET['agency_id'];
         }
 
@@ -120,42 +106,42 @@ class PropertiesController
         ───────────────────────────── */
 
         if (isset($_GET['price_min']) && is_numeric($_GET['price_min'])) {
-            $conditions[] = 'price >= ?';
+            $conditions[] = 'p.price >= ?';
             $params[] = (float)$_GET['price_min'];
         }
 
         if (isset($_GET['price_max']) && is_numeric($_GET['price_max'])) {
-            $conditions[] = 'price <= ?';
+            $conditions[] = 'p.price <= ?';
             $params[] = (float)$_GET['price_max'];
         }
 
         if (isset($_GET['living_area_min']) && is_numeric($_GET['living_area_min'])) {
-            $conditions[] = 'living_area >= ?';
+            $conditions[] = 'p.living_area >= ?';
             $params[] = (float)$_GET['living_area_min'];
         }
 
         if (isset($_GET['living_area_max']) && is_numeric($_GET['living_area_max'])) {
-            $conditions[] = 'living_area <= ?';
+            $conditions[] = 'p.living_area <= ?';
             $params[] = (float)$_GET['living_area_max'];
         }
 
         if (isset($_GET['surface_area_min']) && is_numeric($_GET['surface_area_min'])) {
-            $conditions[] = 'surface_area >= ?';
+            $conditions[] = 'p.surface_area >= ?';
             $params[] = (float)$_GET['surface_area_min'];
         }
 
         if (isset($_GET['surface_area_max']) && is_numeric($_GET['surface_area_max'])) {
-            $conditions[] = 'surface_area <= ?';
+            $conditions[] = 'p.surface_area <= ?';
             $params[] = (float)$_GET['surface_area_max'];
         }
 
         if (isset($_GET['build_year_min']) && is_numeric($_GET['build_year_min'])) {
-            $conditions[] = 'build_year >= ?';
+            $conditions[] = 'p.build_year >= ?';
             $params[] = (int)$_GET['build_year_min'];
         }
 
         if (isset($_GET['build_year_max']) && is_numeric($_GET['build_year_max'])) {
-            $conditions[] = 'build_year <= ?';
+            $conditions[] = 'p.build_year <= ?';
             $params[] = (int)$_GET['build_year_max'];
         }
 
@@ -169,14 +155,12 @@ class PropertiesController
                 array_map('trim', explode(',', $_GET['epc_label']))
             );
 
-
-            $conditions[] = 'epc_label IN (' . implode(',', array_fill(0, count($labels), '?')) . ')';
+            $conditions[] = 'p.epc_label IN (' . implode(',', array_fill(0, count($labels), '?')) . ')';
             array_push($params, ...$labels);
         }
 
-
         if (isset($_GET['epc_value_max']) && is_numeric($_GET['epc_value_max'])) {
-            $conditions[] = 'epc_value <= ?';
+            $conditions[] = 'p.epc_value <= ?';
             $params[] = (int)$_GET['epc_value_max'];
         }
 
@@ -185,20 +169,25 @@ class PropertiesController
         ───────────────────────────── */
 
         if (isset($_GET['auction'])) {
-            $conditions[] = 'auction = ?';
+            $conditions[] = 'p.auction = ?';
             $params[] = (int)(bool)$_GET['auction'];
         }
 
         if (isset($_GET['availability'])) {
-            $conditions[] = 'availability = ?';
+            $conditions[] = 'p.availability = ?';
             $params[] = (int)(bool)$_GET['availability'];
         }
 
         /* ─────────────────────────────
-        BASE QUERY
+        BASE QUERY - NOW WITH JOINS
         ───────────────────────────── */
 
-        $sql = 'SELECT * FROM properties';
+        $sql = 'SELECT p.*, 
+                    a.name AS agency_name,
+                    pi.image_path AS main_image_path
+                FROM properties p
+                LEFT JOIN agencies a ON a.id = p.agency_id
+                LEFT JOIN property_images pi ON pi.property_id = p.id AND pi.is_main = 1';
 
         if (!empty($conditions)) {
             $sql .= ' WHERE ' . implode(' AND ', $conditions);
@@ -219,15 +208,63 @@ class PropertiesController
                 : 'ASC';
 
             if (in_array($_GET['sort'], $allowedSorts, true)) {
-                $sql .= " ORDER BY {$_GET['sort']} $direction";
+                $sql .= " ORDER BY p.{$_GET['sort']} $direction";
             }
         }
 
+        /* ─────────────────────────────
+        LIMIT & OFFSET
+        ───────────────────────────── */
+        $limit = null;
+        $offset = null;
+
+        if (isset($_GET['limit']) && is_numeric($_GET['limit'])) {
+            $limit = max(1, min((int)$_GET['limit'], 100));
+        }
+
+        if (isset($_GET['offset']) && is_numeric($_GET['offset'])) {
+            $offset = max(0, (int)$_GET['offset']);
+        }
+
+        if ($limit !== null) {
+            $sql .= " LIMIT $limit";
+            
+            if ($offset !== null) {
+                $sql .= " OFFSET $offset";
+            }
+        }
+    
+
         $properties = $this->db->fetchAllAssociative($sql, $params);
 
-        ApiResponse::success($properties);
-    }
+        // Get total count for pagination (without limit/offset)
+        $countSql = 'SELECT COUNT(*) as total FROM properties p';
+        if (!empty($conditions)) {
+            $countSql .= ' WHERE ' . implode(' AND ', $conditions);
+        }
+        $totalCount = (int)$this->db->fetchOne($countSql, $params);
 
+        // Add full image URLs
+        foreach ($properties as &$property) {
+            if (!empty($property['main_image_path'])) {
+                $property['main_image_url'] = '/uploads/properties/' . $property['main_image_path'];
+            } else {
+                $property['main_image_url'] = null;
+            }
+            unset($property['main_image_path']); // Remove internal field
+        }
+
+        // Return with pagination metadata
+        ApiResponse::success([
+            'data' => $properties,
+            'pagination' => [
+                'total' => $totalCount,
+                'limit' => $limit,
+                'offset' => $offset ?? 0,
+                'returned' => count($properties)
+            ]
+        ]);
+    }
 
 
     public function post(): void
@@ -262,6 +299,32 @@ class PropertiesController
         } else {
             ApiResponse::error('Could not create property.', 500);
         }
+    }
+
+    public function getPropertiesByAgency(int $agencyID): void
+    {
+        $properties = $this->db->fetchAllAssociative(
+            'SELECT p.*, 
+                    a.name AS agency_name, pi.image_path 
+            FROM properties p 
+            LEFT JOIN property_images pi ON pi.property_id = p.id AND pi.is_main = 1 
+            INNER JOIN agencies a ON a.id = p.agency_id 
+            WHERE p.agency_id = ? 
+            ORDER BY p.created_at DESC',
+            [$agencyID]
+        );
+
+        foreach ($properties as &$property) {
+            if (!empty($property['image_path'])) {
+                $property['main_image_url'] = '/uploads/properties/' . $property['image_path'];
+            } else {
+                $property['main_image_url'] = '/uploads/properties/property-placeholder.png';
+            }
+
+            unset($property['image_path']);
+        }
+
+        ApiResponse::success($properties);
     }
 
     public function getByID(int $propertyID): void
@@ -494,28 +557,6 @@ class PropertiesController
         ], status: 201);
     }
 
-    public function deleteFeature(int $featureID): void
-    {
-        $feature = $this->db->fetchAssociative(
-            'SELECT id, name FROM features WHERE id = ?',
-            [$featureID]
-        );
-
-        if (!$feature) {
-            ApiResponse::error('Feature not found.', 404);
-            return;
-        }
-
-        $this->db->executeStatement(
-            'DELETE FROM features WHERE id = ?',
-            [$featureID]
-        );
-
-        ApiResponse::success([
-            'message' => "Feature '{$feature['name']}' deleted successfully."
-        ]);
-    }
-
     // PROPERTY FEATURES MANAGEMENT
 
     public function propertyFeaturesOverview(int $propertyID): void
@@ -591,38 +632,7 @@ class PropertiesController
         ]);
     }
 
-    public function deleteAllFeaturesFromProperty(int $propertyID): void
-    {
-        if (!$this->propertyExists($propertyID)) {
-            ApiResponse::error('Property not found.', 404);
-            return;
-        }
-
-        $deleted = $this->db->executeStatement(
-            'DELETE FROM properties_features WHERE property_id = ?',
-            [$propertyID]
-        );
-
-        ApiResponse::success([
-            'message' => "Deleted $deleted feature(s) from property.",
-            'property_id' => $propertyID
-        ]);
-    }
-
     // PRIVATE HELPER METHODS
-
-    private function getJsonInput(): ?array
-    {
-        $input = file_get_contents('php://input');
-        $data = json_decode($input, true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            ApiResponse::error('Invalid JSON payload.', 422);
-            return null;
-        }
-
-        return $data;
-    }
 
     private function validatePropertyData(array $data, bool $isCreate): array
     {
@@ -703,6 +713,7 @@ class PropertiesController
 
     private function preparePropertyData(array $data): array
     {
+        
         return [
             'title' => trim((string)$data['title']),
             'description' => trim((string)$data['description']),
@@ -730,11 +741,6 @@ class PropertiesController
 
     private function prepareUpdateData(array $data): array
     {
-        $allowedFields = [
-            'title', 'description', 'agency_id', 'address', 'postal', 'city', 'price',
-            'build_year', 'bedrooms', 'bathrooms', 'living_area', 'surface_area', 'type',
-            'sub_type', 'status', 'visibility', 'auction', 'epc_label', 'epc_value', 'floors', 'availability'
-        ];
 
         $updateData = [];
 
@@ -745,7 +751,6 @@ class PropertiesController
 
             $value = $data[$field];
 
-            // Validate and normalize enum fields
             if ($field === 'type') {
                 $value = strtolower(trim((string)$value));
                 if (!in_array($value, self::VALID_TYPES, true)) continue;
@@ -761,7 +766,6 @@ class PropertiesController
                 if (!in_array($value, self::VALID_VISIBILITIES, true)) continue;
             }
 
-            // Type casting
             if (in_array($field, ['auction', 'availability'])) {
                 $value = (int)(bool)$value;
             } elseif (in_array($field, ['price', 'living_area', 'surface_area'])) {
@@ -782,12 +786,7 @@ class PropertiesController
 
     private function propertyExists(int $propertyID): bool
     {
-        $result = $this->db->fetchAssociative(
-            'SELECT id FROM properties WHERE id = ?',
-            [$propertyID]
-        );
-        
-        return $result !== false;
+        return $this->entityExists('properties', $propertyID);
     }
 
     private function featureExists(string $name): bool
@@ -802,12 +801,7 @@ class PropertiesController
 
     private function featureExistsById(int $featureID): bool
     {
-        $result = $this->db->fetchAssociative(
-            'SELECT id FROM features WHERE id = ?',
-            [$featureID]
-        );
-        
-        return $result !== false;
+        return $this->entityExists('features', $featureID);
     }
 
     private function propertyHasFeature(int $propertyID, int $featureID): bool
@@ -820,20 +814,15 @@ class PropertiesController
         return $result !== false;
     }
 
-    private function getLastInsertId(): ?int
+    private function getLastInsertId(): int
     {
-        try {
-            return (int)$this->db->lastInsertId();
-        } catch (\Throwable) {
-            return null;
-        }
+        return (int)$this->db->lastInsertId();
     }
 
     private function normalizeFilesArray(array $files): array
     {
         $normalized = [];
         $count = is_array($files['name']) ? count($files['name']) : 1;
-
         for ($i = 0; $i < $count; $i++) {
             $normalized[] = [
                 'name' => is_array($files['name']) ? $files['name'][$i] : $files['name'],
@@ -842,7 +831,6 @@ class PropertiesController
                 'size' => is_array($files['size']) ? $files['size'][$i] : $files['size'],
             ];
         }
-
         return $normalized;
     }
 
@@ -902,7 +890,6 @@ class PropertiesController
 
         if (file_exists($filePath)) {
             if (!unlink($filePath)) {
-                // Log error but don't fail the operation
                 error_log("Failed to delete image file: $filePath");
             }
         }
@@ -938,12 +925,10 @@ class PropertiesController
 
         foreach ($images as $img) {
             $filePath = self::UPLOAD_DIR . $img['image_path'];
-
-            if (file_exists($filePath)) {
-                if (!unlink($filePath)) {
-                    $errors[] = "Failed to delete file: {$img['image_path']}";
-                    continue;
-                }
+            
+            if (file_exists($filePath) && !@unlink($filePath)) {
+                $errors[] = "Failed to delete file: {$img['image_path']}";
+                continue;
             }
 
             $this->db->executeStatement(

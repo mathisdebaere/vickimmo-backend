@@ -1,24 +1,11 @@
 <?php
 
 namespace Http;
+
 use \Services\ApiResponse;
-use \Services\DatabaseConnector;
 
-class UsersController
+class UsersController extends BaseController
 {
-    protected \Doctrine\DBAL\Connection $db;
-
-    public function __construct()
-    {
-        // initiate DB connection
-        $this->db = DatabaseConnector::getConnection();
-
-    }
-
-    public function methodNotAllowed() {
-        ApiResponse::error('HTTP request method ' .  $_SERVER['REQUEST_METHOD']. ' not allowed.', 405);
-    }
-
     public function overview()
     {
         $userRows = $this->db->fetchAllAssociative('SELECT * FROM users', []);
