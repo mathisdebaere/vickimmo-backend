@@ -3,12 +3,9 @@
 namespace Http;
 
 use \Services\ApiResponse;
-use \Services\DatabaseConnector;
 
-class PropertiesController
+class PropertiesController extends BaseController
 {
-    protected \Doctrine\DBAL\Connection $db;
-    
     private const UPLOAD_DIR = __DIR__ . '/../../public/uploads/properties/';
     private const MAX_UPLOAD_SIZE = 20971520; // 20MB
     private const ALLOWED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif'];
@@ -16,16 +13,6 @@ class PropertiesController
     private const VALID_TYPES = ['house', 'apartment', 'land', 'garage', 'business'];
     private const VALID_STATUSES = ['for sale', 'for rent', 'for auction', 'sold', 'rented'];
     private const VALID_VISIBILITIES = ['public', 'private', 'archived'];
-
-    public function __construct()
-    {
-        $this->db = DatabaseConnector::getConnection();
-    }
-
-    public function methodNotAllowed(): void
-    {
-        ApiResponse::error('HTTP request method ' . $_SERVER['REQUEST_METHOD'] . ' not allowed.', 405);
-    }
 
     public function overview(): void
     {
@@ -570,28 +557,6 @@ class PropertiesController
         ], status: 201);
     }
 
-    public function deleteFeature(int $featureID): void
-    {
-        $feature = $this->db->fetchAssociative(
-            'SELECT id, name FROM features WHERE id = ?',
-            [$featureID]
-        );
-
-        if (!$feature) {
-            ApiResponse::error('Feature not found.', 404);
-            return;
-        }
-
-        $this->db->executeStatement(
-            'DELETE FROM features WHERE id = ?',
-            [$featureID]
-        );
-
-        ApiResponse::success([
-            'message' => "Feature '{$feature['name']}' deleted successfully."
-        ]);
-    }
-
     // PROPERTY FEATURES MANAGEMENT
 
     public function propertyFeaturesOverview(int $propertyID): void
@@ -667,38 +632,7 @@ class PropertiesController
         ]);
     }
 
-    public function deleteAllFeaturesFromProperty(int $propertyID): void
-    {
-        if (!$this->propertyExists($propertyID)) {
-            ApiResponse::error('Property not found.', 404);
-            return;
-        }
-
-        $deleted = $this->db->executeStatement(
-            'DELETE FROM properties_features WHERE property_id = ?',
-            [$propertyID]
-        );
-
-        ApiResponse::success([
-            'message' => "Deleted $deleted feature(s) from property.",
-            'property_id' => $propertyID
-        ]);
-    }
-
     // PRIVATE HELPER METHODS
-
-    private function getJsonInput(): ?array
-    {
-        $input = file_get_contents('php://input');
-        $data = json_decode($input, true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            ApiResponse::error('Invalid JSON payload.', 422);
-            return null;
-        }
-
-        return $data;
-    }
 
     private function validatePropertyData(array $data, bool $isCreate): array
     {
@@ -779,16 +713,6 @@ class PropertiesController
 
     private function preparePropertyData(array $data): array
     {
-        $allowedFields = [
-            'title', 'description', 'agency_id', 'address', 'postal', 'city', 'price',
-            'build_year', 'bedrooms', 'bathrooms', 'living_area', 'surface_area', 'type',
-            'sub_type', 'status', 'visibility', 'auction', 'epc_label', 'epc_value', 'floors', 'availability'
-        ];
-        
-        $unexpectedFields = array_diff(array_keys($data), $allowedFields);
-        if (!empty($unexpectedFields)) {
-            ApiResponse::error('Unexpected fields detected: ' . implode(', ', $unexpectedFields), 400);
-        }
         
         return [
             'title' => trim((string)$data['title']),
@@ -817,16 +741,6 @@ class PropertiesController
 
     private function prepareUpdateData(array $data): array
     {
-        $allowedFields = [
-            'title', 'description', 'agency_id', 'address', 'postal', 'city', 'price',
-            'build_year', 'bedrooms', 'bathrooms', 'living_area', 'surface_area', 'type',
-            'sub_type', 'status', 'visibility', 'auction', 'epc_label', 'epc_value', 'floors', 'availability'
-        ];
-        
-        $unexpectedFields = array_diff(array_keys($data), $allowedFields);
-        if (!empty($unexpectedFields)) {
-            ApiResponse::error('Unexpected fields detected: ' . implode(', ', $unexpectedFields), 400);
-        }
 
         $updateData = [];
 
@@ -872,12 +786,7 @@ class PropertiesController
 
     private function propertyExists(int $propertyID): bool
     {
-        $result = $this->db->fetchAssociative(
-            'SELECT id FROM properties WHERE id = ?',
-            [$propertyID]
-        );
-        
-        return $result !== false;
+        return $this->entityExists('properties', $propertyID);
     }
 
     private function featureExists(string $name): bool
@@ -892,12 +801,7 @@ class PropertiesController
 
     private function featureExistsById(int $featureID): bool
     {
-        $result = $this->db->fetchAssociative(
-            'SELECT id FROM features WHERE id = ?',
-            [$featureID]
-        );
-        
-        return $result !== false;
+        return $this->entityExists('features', $featureID);
     }
 
     private function propertyHasFeature(int $propertyID, int $featureID): bool
@@ -910,20 +814,15 @@ class PropertiesController
         return $result !== false;
     }
 
-    private function getLastInsertId(): ?int
+    private function getLastInsertId(): int
     {
-        try {
-            return (int)$this->db->lastInsertId();
-        } catch (\Throwable) {
-            return null;
-        }
+        return (int)$this->db->lastInsertId();
     }
 
     private function normalizeFilesArray(array $files): array
     {
         $normalized = [];
         $count = is_array($files['name']) ? count($files['name']) : 1;
-
         for ($i = 0; $i < $count; $i++) {
             $normalized[] = [
                 'name' => is_array($files['name']) ? $files['name'][$i] : $files['name'],
@@ -932,7 +831,6 @@ class PropertiesController
                 'size' => is_array($files['size']) ? $files['size'][$i] : $files['size'],
             ];
         }
-
         return $normalized;
     }
 
@@ -1027,12 +925,10 @@ class PropertiesController
 
         foreach ($images as $img) {
             $filePath = self::UPLOAD_DIR . $img['image_path'];
-
-            if (file_exists($filePath)) {
-                if (!unlink($filePath)) {
-                    $errors[] = "Failed to delete file: {$img['image_path']}";
-                    continue;
-                }
+            
+            if (file_exists($filePath) && !@unlink($filePath)) {
+                $errors[] = "Failed to delete file: {$img['image_path']}";
+                continue;
             }
 
             $this->db->executeStatement(

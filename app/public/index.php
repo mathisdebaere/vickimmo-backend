@@ -33,11 +33,9 @@ $router->mount('/api', function() use ($router) {
     // Features
     $router->get('/properties/features', 'PropertiesController@featuresOverview');
     $router->post('/properties/features', 'PropertiesController@postFeature');
-    $router->delete('/properties/features/(\d+)', 'PropertiesController@deleteFeature');
     $router->get('/properties/(\d+)/features', 'PropertiesController@propertyFeaturesOverview');
     $router->post('/properties/(\d+)/features/(\d+)', 'PropertiesController@postFeatureToProperty');
     $router->delete('/properties/(\d+)/features/(\d+)', 'PropertiesController@deleteFeatureFromProperty');
-    $router->delete('/properties/(\d+)/features', 'PropertiesController@deleteAllFeaturesFromProperty');
 });
 
 // Auctions routes
@@ -46,25 +44,25 @@ $router->mount('/api', function() use ($router) {
     header('Access-Control-Allow-Credentials: true');
 
     // Auctions
-    $router->get('/auctions', 'AuctionsController@overview');
-    $router->post('/auctions', 'AuctionsController@post');
-    $router->get('/auctions/(\d+)', 'AuctionsController@getByID');
-    $router->put('/auctions/(\d+)', 'AuctionsController@putByID');
-    $router->delete('/auctions/(\d+)', 'AuctionsController@deleteByID');
+    $router->get('/auctions', 'AuctionController@overview');
+    $router->post('/auctions', 'AuctionController@post');
+    $router->get('/auctions/(\d+)', 'AuctionController@getByID');
+    $router->put('/auctions/(\d+)', 'AuctionController@putByID');
+    $router->delete('/auctions/(\d+)', 'AuctionController@deleteByID');
 
     // Auction status filters
-    $router->get('/auctions/status/active', 'AuctionsController@getActiveAuctions');
-    $router->get('/auctions/status/upcoming', 'AuctionsController@getUpcomingAuctions');
-    $router->get('/auctions/status/ended', 'AuctionsController@getEndedAuctions');
+    $router->get('/auctions/status/active', 'AuctionController@getActiveAuctions');
+    $router->get('/auctions/status/upcoming', 'AuctionController@getUpcomingAuctions');
+    $router->get('/auctions/status/ended', 'AuctionController@getEndedAuctions');
 
     // Property auctions
-    $router->get('/properties/(\d+)/auctions', 'AuctionsController@getAuctionsByProperty');
+    $router->get('/properties/(\d+)/auctions', 'AuctionController@getAuctionsByProperty');
 
     // Bids
-    $router->get('/auctions/(\d+)/bids', 'AuctionsController@getAllBids');
-    $router->post('/auctions/(\d+)/bids', 'AuctionsController@postBid');
-    $router->delete('/auctions/(\d+)/bids/(\d+)', 'AuctionsController@deleteBid');
-    $router->delete('/auctions/(\d+)/bids', 'AuctionsController@deleteAllBids');
+    $router->get('/auctions/(\d+)/bids', 'AuctionController@getAllBids');
+    $router->post('/auctions/(\d+)/bids', 'AuctionController@postBid');
+    $router->delete('/auctions/(\d+)/bids/(\d+)', 'AuctionController@deleteBid');
+    $router->delete('/auctions/(\d+)/bids', 'AuctionController@deleteAllBids');
 });
 
 // Authentication routes
@@ -80,7 +78,6 @@ $router->mount('/auth', function() use ($router) {
     $router->post('/logout', 'AuthController@logout');
     $router->get('/account', 'AuthController@account');
     $router->put('/account', 'AuthController@updateProfile');
-    $router->put('/account/password', 'AuthController@changePassword');
     $router->post('/refresh', 'AuthController@refreshToken');
 });
 
@@ -90,11 +87,11 @@ $router->mount('/api', function() use ($router) {
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
     header('Access-Control-Allow-Credentials: true');
 
-    $router->get('/users', 'UsersController@overview');
-    $router->post('/users', 'UsersController@post');
-    $router->get('/users/(\d+)', 'UsersController@getByID');
-    $router->put('/users/(\d+)', 'UsersController@putByID');
-    $router->delete('/users/(\d+)', 'UsersController@deleteByID');
+    $router->get('/users', 'UserController@overview');
+    $router->post('/users', 'UserController@post');
+    $router->get('/users/(\d+)', 'UserController@getByID');
+    $router->put('/users/(\d+)', 'UserController@putByID');
+    $router->delete('/users/(\d+)', 'UserController@deleteByID');
 });
 
 // Agencies routes
@@ -114,7 +111,6 @@ $router->mount('/api', function() use ($router) {
 
     $router->get('/agencies/(\d+)/reviews', 'AgenciesController@reviewsOverview');
     $router->post('/agencies/(\d+)/reviews', 'AgenciesController@postReview');
-    $router->put('/agencies/(\d+)/reviews/(\d+)', 'AgenciesController@putReview');
     $router->delete('/agencies/(\d+)/reviews/(\d+)', 'AgenciesController@deleteReview');
 
     // Agency properties
@@ -146,8 +142,6 @@ $router->mount('/api', function() use ($router) {
 
     // Employee utilities
     $router->get('/employees/(\d+)/agencies', 'EmployeesController@getAgenciesByEmployee');
-    $router->get('/agencies/(\d+)/employees/count', 'EmployeesController@getEmployeeCount');
-    $router->get('/agencies/(\d+)/employees/(\d+)/check', 'EmployeesController@checkEmployeeInAgency');
 });
 
 // CORS: Preflight request handler for authentication routes

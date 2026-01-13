@@ -3,34 +3,27 @@
 namespace Http;
 
 use \Services\ApiResponse;
-use \Services\DatabaseConnector;
 
-class AuctionsController
+class AuctionsController extends BaseController
 {
-    protected \Doctrine\DBAL\Connection $db;
-    
     private const VALID_AUCTION_STATUSES = ['upcoming', 'active', 'ended'];
-
-    public function __construct()
-    {
-        $this->db = DatabaseConnector::getConnection();
-    }
-
-    public function methodNotAllowed(): void
-    {
-        ApiResponse::error('HTTP request method ' . $_SERVER['REQUEST_METHOD'] . ' not allowed.', 405);
-    }
 
     // AUCTION MANAGEMENT
 
     public function overview(): void
     {
+        // Optimized: Use LEFT JOIN instead of subqueries
         $auctions = $this->db->fetchAllAssociative(
-            'SELECT a.*, p.title as property_title, p.address, p.city,
-                    (SELECT MAX(b.bid_amount) FROM bids b WHERE b.auction_id = a.id) as current_price,
-                    (SELECT COUNT(*) FROM bids b WHERE b.auction_id = a.id) as bid_count
+            'SELECT a.*, 
+                    p.title as property_title, 
+                    p.address, 
+                    p.city,
+                    COALESCE(MAX(b.bid_amount), a.starting_price) as current_price,
+                    COUNT(DISTINCT b.id) as bid_count
              FROM auctions a
              JOIN properties p ON a.property_id = p.id
+             LEFT JOIN bids b ON b.auction_id = a.id
+             GROUP BY a.id
              ORDER BY a.starting_time DESC'
         );
 
@@ -403,19 +396,6 @@ class AuctionsController
 
     // PRIVATE HELPER METHODS
 
-    private function getJsonInput(): ?array
-    {
-        $input = file_get_contents('php://input');
-        $data = json_decode($input, true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            ApiResponse::error('Invalid JSON payload.', 422);
-            return null;
-        }
-
-        return $data;
-    }
-
     private function validateAuctionData(array $data, bool $isCreate): array
     {
         $errors = [];
@@ -568,12 +548,7 @@ class AuctionsController
 
     private function propertyExists(int $propertyID): bool
     {
-        $result = $this->db->fetchAssociative(
-            'SELECT id FROM properties WHERE id = ?',
-            [$propertyID]
-        );
-        
-        return $result !== false;
+        return $this->entityExists('properties', $propertyID);
     }
 
     private function propertyHasActiveAuction(int $propertyID): bool

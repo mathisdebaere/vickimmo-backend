@@ -3,21 +3,9 @@
 namespace Http;
 
 use \Services\ApiResponse;
-use \Services\DatabaseConnector;
 
-class EmployeesController
+class EmployeesController extends BaseController
 {
-    protected \Doctrine\DBAL\Connection $db;
-
-    public function __construct()
-    {
-        $this->db = DatabaseConnector::getConnection();
-    }
-
-    public function methodNotAllowed(): void
-    {
-        ApiResponse::error('HTTP request method ' . $_SERVER['REQUEST_METHOD'] . ' not allowed.', 405);
-    }
 
     public function overview(int $agencyID): void
     {
@@ -224,23 +212,31 @@ class EmployeesController
                 [$agencyID]
             );
 
-            // Update roles for users who are no longer employees at any agency
-            foreach ($employees as $emp) {
-                $userID = (int)$emp['user_id'];
+            // Optimize: Batch check which users are no longer employees at any agency
+            if (!empty($employees)) {
+                $userIDs = array_column($employees, 'user_id');
                 
-                $otherAgencies = $this->db->fetchAssociative(
-                    'SELECT COUNT(*) as count FROM agencies_employees WHERE user_id = ?',
-                    [$userID]
+                // Find users who are no longer employees at any agency
+                $usersWithNoAgencies = $this->db->fetchAllAssociative(
+                    'SELECT u.id, u.role 
+                     FROM users u
+                     WHERE u.id IN (?) 
+                     AND NOT EXISTS (
+                         SELECT 1 FROM agencies_employees ae WHERE ae.user_id = u.id
+                     )
+                     AND u.role = ?',
+                    [$userIDs, 'employee'],
+                    [\Doctrine\DBAL\Connection::PARAM_INT_ARRAY, \Doctrine\DBAL\ParameterType::STRING]
                 );
 
-                if ((int)$otherAgencies['count'] === 0) {
-                    $currentRole = $this->getUserRole($userID);
-                    if ($currentRole === 'employee') {
-                        $this->db->executeStatement(
-                            'UPDATE users SET role = ? WHERE id = ?',
-                            ['client', $userID]
-                        );
-                    }
+                // Update roles in batch
+                if (!empty($usersWithNoAgencies)) {
+                    $updateIDs = array_column($usersWithNoAgencies, 'id');
+                    $this->db->executeStatement(
+                        'UPDATE users SET role = ? WHERE id IN (?)',
+                        ['client', $updateIDs],
+                        [\Doctrine\DBAL\ParameterType::STRING, \Doctrine\DBAL\Connection::PARAM_INT_ARRAY]
+                    );
                 }
             }
 
@@ -301,49 +297,7 @@ class EmployeesController
         ]);
     }
 
-    public function getEmployeeCount(int $agencyID): void
-    {
-        if (!$this->agencyExists($agencyID)) {
-            ApiResponse::error('Agency not found.', 404);
-            return;
-        }
-
-        $result = $this->db->fetchAssociative(
-            'SELECT COUNT(*) as employee_count FROM agencies_employees WHERE agency_id = ?',
-            [$agencyID]
-        );
-
-        ApiResponse::success([
-            'agency_id' => $agencyID,
-            'employee_count' => (int)$result['employee_count']
-        ]);
-    }
-
-    public function checkEmployeeInAgency(int $agencyID, int $employeeID): void
-    {
-        $exists = $this->isEmployeeOfAgency($agencyID, $employeeID);
-
-        ApiResponse::success([
-            'agency_id' => $agencyID,
-            'user_id' => $employeeID,
-            'is_employee' => $exists
-        ]);
-    }
-
     // PRIVATE HELPER METHODS
-
-    private function getJsonInput(): ?array
-    {
-        $input = file_get_contents('php://input');
-        $data = json_decode($input, true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            ApiResponse::error('Invalid JSON payload.', 422);
-            return null;
-        }
-
-        return $data;
-    }
 
     private function validateEmployeeData(array $data): array
     {
@@ -358,22 +312,18 @@ class EmployeesController
 
     private function agencyExists(int $agencyID): bool
     {
-        $result = $this->db->fetchAssociative(
-            'SELECT id FROM agencies WHERE id = ?',
-            [$agencyID]
-        );
-        
-        return $result !== false;
+        return $this->entityExists('agencies', $agencyID);
     }
 
     private function userExists(int $userID): bool
     {
-        $result = $this->db->fetchAssociative(
-            'SELECT id FROM users WHERE id = ?',
-            [$userID]
-        );
-        
-        return $result !== false;
+        return $this->entityExists('users', $userID);
+    }
+
+    private function getUserRole(int $userID): ?string
+    {
+        $result = $this->db->fetchOne('SELECT role FROM users WHERE id = ?', [$userID]);
+        return $result ?: null;
     }
 
     private function isEmployeeOfAgency(int $agencyID, int $userID): bool
@@ -386,13 +336,4 @@ class EmployeesController
         return $result !== false;
     }
 
-    private function getUserRole(int $userID): ?string
-    {
-        $result = $this->db->fetchAssociative(
-            'SELECT role FROM users WHERE id = ?',
-            [$userID]
-        );
-        
-        return $result ? $result['role'] : null;
-    }
 }
