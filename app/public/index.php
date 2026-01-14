@@ -15,6 +15,8 @@ $router->setNamespace('\Http');
 $router->mount('/api', function() use ($router) {
     // CORS: API response can be shared with javascript code from origin ALLOW_ORIGIN
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
     header('Access-Control-Allow-Credentials: true');
 
     // Properties
@@ -22,7 +24,7 @@ $router->mount('/api', function() use ($router) {
     $router->post('/properties', 'PropertiesController@post');
     $router->get('/properties/(\d+)', 'PropertiesController@getByID');
     $router->put('/properties/(\d+)', 'PropertiesController@putByID');
-    $router->delete('/properties/(\d+)', 'PropertiesController@deleteByID');
+    $router->patch('/properties/(\d+)/visibility', 'PropertiesController@toggleVisibility');
 
     // Images
     $router->get('/properties/(\d+)/images', 'PropertiesController@getAllImg');
@@ -41,6 +43,8 @@ $router->mount('/api', function() use ($router) {
 // Auctions routes
 $router->mount('/api', function() use ($router) {
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
     header('Access-Control-Allow-Credentials: true');
 
     // Auctions
@@ -67,6 +71,8 @@ $router->mount('/api', function() use ($router) {
 // Authentication routes
 $router->mount('/auth', function() use ($router) {
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
     header('Access-Control-Allow-Credentials: true');
     
     // Public authentication routes
@@ -84,6 +90,8 @@ $router->mount('/auth', function() use ($router) {
 $router->mount('/api', function() use ($router) {
     // CORS: API response can be shared with javascript code from origin ALLOW_ORIGIN
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
     header('Access-Control-Allow-Credentials: true');
 
     $router->get('/users', 'UserController@overview');
@@ -97,6 +105,8 @@ $router->mount('/api', function() use ($router) {
 $router->mount('/api', function() use ($router) {
     // CORS: API response can be shared with javascript code from origin ALLOW_ORIGIN
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
     header('Access-Control-Allow-Credentials: true');
 
     $router->get('/agencies', 'AgenciesController@overview');
@@ -120,6 +130,8 @@ $router->mount('/api', function() use ($router) {
 $router->mount('/api', function() use ($router) {
     // CORS: API response can be shared with javascript code from origin ALLOW_ORIGIN
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
     header('Access-Control-Allow-Credentials: true');
 
     $router->get('/employees/(\d+)', 'EmployeesController@overview');
@@ -130,6 +142,8 @@ $router->mount('/api', function() use ($router) {
 // Agency Employees routes
 $router->mount('/api', function() use ($router) {
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
     header('Access-Control-Allow-Credentials: true');
 
     // Agency Employees
@@ -154,7 +168,7 @@ $router->options('/auth/.*', function() {
 // CORS: Preflight request handler for API routes
 $router->options('/api/.*', function() {
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
-    header('Access-Control-Allow-Methods: POST, GET, PUT, DELETE, OPTIONS');
+    header('Access-Control-Allow-Methods: POST, GET, PUT, PATCH, DELETE, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type, Authorization');
     header('Access-Control-Allow-Credentials: true');
 });

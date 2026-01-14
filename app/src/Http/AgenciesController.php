@@ -436,7 +436,8 @@ class AgenciesController extends BaseController
         $errors = $this->validateReviewData($data);
         
         if (!empty($errors)) {
-            ApiResponse::error(json_encode($errors), 422);
+            $errorMessage = is_array($errors) ? implode(' ', $errors) : $errors;
+            ApiResponse::error($errorMessage, 422);
             return;
         }
 
@@ -453,7 +454,7 @@ class AgenciesController extends BaseController
 
         // Check if review already exists (composite primary key)
         if ($this->reviewExists($userId, $agencyID)) {
-            ApiResponse::error('User has already reviewed this agency. Use PUT to update.', 409);
+            ApiResponse::error("You've already reviewed this agency.", 409);
             return;
         }
 
@@ -615,14 +616,22 @@ class AgenciesController extends BaseController
 
             // Title is required for POST
             $title = isset($data['title']) ? trim((string)$data['title']) : '';
-            if ($title === '' || mb_strlen($title) < 3) {
-                $errors[] = 'Title must be at least 3 characters.';
+            if ($title === '') {
+                $errors[] = 'Title is required.';
+            } elseif (mb_strlen($title) < 10) {
+                $errors[] = 'Title must be at least 10 characters.';
+            } elseif (mb_strlen($title) > 250) {
+                $errors[] = 'Title must not exceed 250 characters.';
             }
 
             // Content is required for POST
             $content = isset($data['content']) ? trim((string)$data['content']) : '';
-            if ($content === '' || mb_strlen($content) < 10) {
+            if ($content === '') {
+                $errors[] = 'Content is required.';
+            } elseif (mb_strlen($content) < 10) {
                 $errors[] = 'Content must be at least 10 characters.';
+            } elseif (mb_strlen($content) > 250) {
+                $errors[] = 'Content must not exceed 250 characters.';
             }
         } else {
             // For PUT, validate only if provided
@@ -635,8 +644,10 @@ class AgenciesController extends BaseController
 
             if (isset($data['title'])) {
                 $title = trim((string)$data['title']);
-                if (mb_strlen($title) < 3) {
-                    $errors[] = 'Title must be at least 3 characters.';
+                if (mb_strlen($title) < 10) {
+                    $errors[] = 'Title must be at least 10 characters.';
+                } elseif (mb_strlen($title) > 250) {
+                    $errors[] = 'Title must not exceed 250 characters.';
                 }
             }
 
@@ -644,6 +655,8 @@ class AgenciesController extends BaseController
                 $content = trim((string)$data['content']);
                 if (mb_strlen($content) < 10) {
                     $errors[] = 'Content must be at least 10 characters.';
+                } elseif (mb_strlen($content) > 250) {
+                    $errors[] = 'Content must not exceed 250 characters.';
                 }
             }
         }

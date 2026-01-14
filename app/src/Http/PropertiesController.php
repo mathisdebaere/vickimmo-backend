@@ -3,6 +3,7 @@
 namespace Http;
 
 use \Services\ApiResponse;
+use \Services\JWTService;
 
 class PropertiesController extends BaseController
 {
@@ -12,12 +13,94 @@ class PropertiesController extends BaseController
     
     private const VALID_TYPES = ['house', 'apartment', 'land', 'garage', 'business'];
     private const VALID_STATUSES = ['for sale', 'for rent', 'for auction', 'sold', 'rented'];
-    private const VALID_VISIBILITIES = ['public', 'private', 'archived'];
+
+    private function getCurrentUser(): ?array
+    {
+        $token = $this->getBearerToken();
+        if (!$token) {
+            return null;
+        }
+
+        try {
+            $secretKey = $_ENV['JWT_SECRET_KEY'] ?? null;
+            if (!$secretKey) {
+                return null;
+            }
+            
+            $decoded = JWTService::validateJWTToken($token, $secretKey);
+            
+            $user = $this->db->fetchAssociative(
+                'SELECT id, role FROM users WHERE id = ?',
+                [(int)$decoded->sub]
+            );
+
+            if ($user === false) {
+                return null;
+            }
+
+            return [
+                'id' => (int)$user['id'],
+                'role' => $user['role']
+            ];
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    private function getUserAgencies(int $userId): array
+    {
+        $agencies = $this->db->fetchAllAssociative(
+            'SELECT agency_id FROM agencies_employees WHERE user_id = ?',
+            [$userId]
+        );
+
+        return array_map(fn($row) => (int)$row['agency_id'], $agencies);
+    }
+
+    private function getBearerToken(): ?string
+    {
+        $headers = getallheaders();
+        
+        if (isset($headers['Authorization'])) {
+            $authHeader = $headers['Authorization'];
+        } elseif (isset($headers['authorization'])) {
+            $authHeader = $headers['authorization'];
+        } else {
+            return null;
+        }
+
+        if (preg_match('/Bearer\s+(\S+)/', $authHeader, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
+    }
 
     public function overview(): void
     {
         $conditions = [];
         $params = [];
+
+        /* ─────────────────────────────
+        VISIBILITY FILTER
+        ───────────────────────────── */
+        $currentUser = $this->getCurrentUser();
+        
+        if ($currentUser === null || $currentUser['role'] === 'client') {
+            $conditions[] = 'p.visibility = ?';
+            $params[] = 'public';
+        } elseif ($currentUser['role'] === 'employee') {
+            $userAgencies = $this->getUserAgencies($currentUser['id']);
+            
+            if (!empty($userAgencies)) {
+                $agencyPlaceholders = implode(',', array_fill(0, count($userAgencies), '?'));
+                $conditions[] = "(p.visibility = 'public' OR (p.visibility = 'private' AND p.agency_id IN ($agencyPlaceholders)))";
+                array_push($params, ...$userAgencies);
+            } else {
+                $conditions[] = 'p.visibility = ?';
+                $params[] = 'public';
+            }
+        }
 
         /* ─────────────────────────────
         TEXT / EXACT MATCH FILTERS
@@ -267,8 +350,8 @@ class PropertiesController extends BaseController
         $result = $this->db->executeStatement(
             'INSERT INTO properties 
             (title, description, agency_id, address, postal, city, price, build_year, 
-             bedrooms, bathrooms, living_area, surface_area, type, sub_type, status, epc_label, epc_value, floors) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+             bedrooms, bathrooms, living_area, surface_area, type, sub_type, status, visibility, epc_label, epc_value, floors) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             array_values($propertyData)
         );
 
@@ -360,7 +443,7 @@ class PropertiesController extends BaseController
         }
     }
 
-    public function deleteByID(int $propertyID): void
+    public function toggleVisibility(int $propertyID): void
     {
         if (!$this->propertyExists($propertyID)) {
             ApiResponse::error('Property not found.', 404);
@@ -368,21 +451,25 @@ class PropertiesController extends BaseController
         }
 
         try {
-            $this->db->beginTransaction();
-            
-            $this->deleteAllImagesInternal($propertyID);
-            
-            $this->db->executeStatement(
-                'DELETE FROM properties WHERE id = ?',
+            // Get current visibility
+            $property = $this->db->fetchAssociative(
+                'SELECT visibility FROM properties WHERE id = ?',
                 [$propertyID]
             );
-            
-            $this->db->commit();
-            
-            ApiResponse::success(['message' => 'Property and all associated images deleted successfully.'], status: 200);
+
+            $newVisibility = $property['visibility'] === 'public' ? 'private' : 'public';
+
+            $this->db->executeStatement(
+                'UPDATE properties SET visibility = ? WHERE id = ?',
+                [$newVisibility, $propertyID]
+            );
+
+            ApiResponse::success([
+                'message' => 'Property visibility updated successfully.',
+                'visibility' => $newVisibility
+            ], status: 200);
         } catch (\Throwable $e) {
-            $this->db->rollBack();
-            ApiResponse::error('Failed to delete property: ' . $e->getMessage(), 500);
+            ApiResponse::error('Failed to update visibility: ' . $e->getMessage(), 500);
         }
     }
 
@@ -703,6 +790,7 @@ class PropertiesController extends BaseController
             'type' => strtolower(trim((string)$data['type'])),
             'sub_type' => isset($data['sub_type']) ? trim((string)$data['sub_type']) : null,
             'status' => strtolower(trim((string)$data['status'])),
+            'visibility' => isset($data['visibility']) && in_array($data['visibility'], ['public', 'private'], true) ? $data['visibility'] : 'public',
             'epc_label' => isset($data['epc_label']) ? strtoupper(trim((string)$data['epc_label'])) : null,
             'epc_value' => isset($data['epc_value']) ? (int)$data['epc_value'] : null,
             'floors' => isset($data['floors']) ? (int)$data['floors'] : null,
@@ -714,7 +802,7 @@ class PropertiesController extends BaseController
         $allowedFields = [
             'title', 'description', 'agency_id', 'address', 'postal', 'city', 'price',
             'build_year', 'bedrooms', 'bathrooms', 'living_area', 'surface_area', 'type',
-            'sub_type', 'status', 'epc_label', 'epc_value', 'floors'
+            'sub_type', 'status', 'visibility', 'epc_label', 'epc_value', 'floors'
         ];
 
         $updateData = [];
@@ -734,6 +822,10 @@ class PropertiesController extends BaseController
             if ($field === 'status') {
                 $value = strtolower(trim((string)$value));
                 if (!in_array($value, self::VALID_STATUSES, true)) continue;
+            }
+
+            if ($field === 'visibility') {
+                if (!in_array($value, ['public', 'private'], true)) continue;
             }
 
             if (in_array($field, ['price', 'living_area', 'surface_area'])) {

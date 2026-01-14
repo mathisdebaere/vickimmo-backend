@@ -130,6 +130,7 @@ CREATE TABLE IF NOT EXISTS `immo`.`properties` (
         'garage;parking space'
     ) DEFAULT NULL,
   `status` ENUM('for sale', 'for rent','for auction', 'sold', 'rented') NOT NULL,
+  `visibility` ENUM('public', 'private') NOT NULL DEFAULT 'public',
   `epc_label` ENUM('A+', 'A', 'B', 'C', 'D', 'E', 'F') NULL DEFAULT NULL,
   `epc_value` INT NULL DEFAULT NULL,
   `floors` INT NULL DEFAULT NULL,

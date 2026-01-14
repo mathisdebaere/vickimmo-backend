@@ -121,12 +121,12 @@ class AuthController extends BaseController
         );
 
         if ($user === false) {
-            ApiResponse::error('Invalid credentials.', 401);
+            ApiResponse::error('Username and / or password are incorrect.', 401);
             return;
         }
 
         if (!password_verify($password, $user['password'])) {
-            ApiResponse::error('Invalid credentials.', 401);
+            ApiResponse::error('Username and / or password are incorrect.', 401);
             return;
         }
 
