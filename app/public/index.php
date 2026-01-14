@@ -40,6 +40,18 @@ $router->mount('/api', function() use ($router) {
     $router->delete('/properties/(\d+)/features', 'PropertiesController@deleteAllFeaturesFromProperty');
 });
 
+// Favourites routes
+$router->mount('/api', function() use ($router) {
+    header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Credentials: true');
+
+    $router->get('/favourites/(\d+)', 'FavouritesController@overview');
+    $router->post('/favourites/(\d+)/(\d+)', 'FavouritesController@post');
+    $router->get('/favourites/(\d+)/(\d+)', 'FavouritesController@check');
+    $router->delete('/favourites/(\d+)/(\d+)', 'FavouritesController@delete');
+    $router->delete('/favourites/(\d+)', 'FavouritesController@deleteAll');
+});
+
 // Auctions routes
 $router->mount('/api', function() use ($router) {
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
