@@ -906,6 +906,12 @@ class PropertiesController extends BaseController
         $successCount = 0;
         $errors = [];
 
+        // Get current image count for this property to determine next number
+        $currentCount = (int)$this->db->fetchOne(
+            'SELECT COUNT(*) FROM property_images WHERE property_id = ?',
+            [$propertyID]
+        );
+
         foreach ($files as $file) {
             if ($file['error'] !== UPLOAD_ERR_OK) {
                 $errors[] = "Upload error for {$file['name']} (code: {$file['error']})";
@@ -923,7 +929,9 @@ class PropertiesController extends BaseController
                 continue;
             }
 
-            $newFileName = uniqid("prop_{$propertyID}_") . '.' . $fileExt;
+            // Use sequential numbering: prop_1_1, prop_1_2, etc.
+            $imageNumber = $currentCount + $successCount + 1;
+            $newFileName = "prop_{$propertyID}_{$imageNumber}." . $fileExt;
             $destination = self::UPLOAD_DIR . $newFileName;
 
             if (!move_uploaded_file($file['tmp_name'], $destination)) {
@@ -931,7 +939,7 @@ class PropertiesController extends BaseController
                 continue;
             }
 
-            $isMain = ($successCount === 0) ? 1 : 0;
+            $isMain = ($successCount === 0 && $currentCount === 0) ? 1 : 0;
 
             $this->db->executeStatement(
                 'INSERT INTO property_images (property_id, image_path, is_main) VALUES (?, ?, ?)',

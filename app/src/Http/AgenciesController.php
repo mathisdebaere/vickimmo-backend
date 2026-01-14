@@ -315,8 +315,8 @@ class AgenciesController extends BaseController
             [$id]
         );
 
-        // Generate new filename
-        $newFileName = uniqid("agency_{$id}_logo_") . '.' . $fileExt;
+        // Simple naming: agency_1.png, agency_2.jpg, etc.
+        $newFileName = "agency_{$id}." . $fileExt;
         $destination = self::UPLOAD_DIR . $newFileName;
 
         if (!move_uploaded_file($file['tmp_name'], $destination)) {
