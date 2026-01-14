@@ -130,12 +130,9 @@ CREATE TABLE IF NOT EXISTS `immo`.`properties` (
         'garage;parking space'
     ) DEFAULT NULL,
   `status` ENUM('for sale', 'for rent','for auction', 'sold', 'rented') NOT NULL,
-  `visibility` ENUM('public', 'private', 'archived') NOT NULL DEFAULT 'public',
-  `auction` TINYINT(1) NULL DEFAULT '0',
   `epc_label` ENUM('A+', 'A', 'B', 'C', 'D', 'E', 'F') NULL DEFAULT NULL,
   `epc_value` INT NULL DEFAULT NULL,
   `floors` INT NULL DEFAULT NULL,
-  `availability` TINYINT(1) NULL DEFAULT '1',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),

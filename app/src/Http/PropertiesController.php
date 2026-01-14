@@ -71,11 +71,6 @@ class PropertiesController extends BaseController
             }
         }
 
-        if (!empty($_GET['visibility']) && in_array($_GET['visibility'], self::VALID_VISIBILITIES, true)) {
-            $conditions[] = 'p.visibility = ?';
-            $params[] = $_GET['visibility'];
-        }
-
 
         /* ─────────────────────────────
         NUMERIC EXACT MATCH
@@ -162,20 +157,6 @@ class PropertiesController extends BaseController
         if (isset($_GET['epc_value_max']) && is_numeric($_GET['epc_value_max'])) {
             $conditions[] = 'p.epc_value <= ?';
             $params[] = (int)$_GET['epc_value_max'];
-        }
-
-        /* ─────────────────────────────
-        BOOLEAN FILTERS
-        ───────────────────────────── */
-
-        if (isset($_GET['auction'])) {
-            $conditions[] = 'p.auction = ?';
-            $params[] = (int)(bool)$_GET['auction'];
-        }
-
-        if (isset($_GET['availability'])) {
-            $conditions[] = 'p.availability = ?';
-            $params[] = (int)(bool)$_GET['availability'];
         }
 
         /* ─────────────────────────────
@@ -286,8 +267,7 @@ class PropertiesController extends BaseController
         $result = $this->db->executeStatement(
             'INSERT INTO properties 
             (title, description, agency_id, address, postal, city, price, build_year, 
-             bedrooms, bathrooms, living_area, surface_area, type, sub_type, status, 
-             visibility, auction, epc_label, epc_value, floors, availability) 
+             bedrooms, bathrooms, living_area, surface_area, type, sub_type, status, epc_label, epc_value, floors) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             array_values($propertyData)
         );
@@ -701,13 +681,6 @@ class PropertiesController extends BaseController
             }
         }
 
-        if (isset($data['visibility'])) {
-            $visibility = strtolower(trim((string)$data['visibility']));
-            if (!in_array($visibility, self::VALID_VISIBILITIES, true)) {
-                $errors[] = 'Visibility must be one of: ' . implode(', ', self::VALID_VISIBILITIES);
-            }
-        }
-
         return $errors;
     }
 
@@ -730,12 +703,9 @@ class PropertiesController extends BaseController
             'type' => strtolower(trim((string)$data['type'])),
             'sub_type' => isset($data['sub_type']) ? trim((string)$data['sub_type']) : null,
             'status' => strtolower(trim((string)$data['status'])),
-            'visibility' => isset($data['visibility']) ? strtolower(trim((string)$data['visibility'])) : 'public',
-            'auction' => isset($data['auction']) ? (int)(bool)$data['auction'] : 0,
             'epc_label' => isset($data['epc_label']) ? strtoupper(trim((string)$data['epc_label'])) : null,
             'epc_value' => isset($data['epc_value']) ? (int)$data['epc_value'] : null,
             'floors' => isset($data['floors']) ? (int)$data['floors'] : null,
-            'availability' => isset($data['availability']) ? (int)(bool)$data['availability'] : 1,
         ];
     }
 
@@ -744,7 +714,7 @@ class PropertiesController extends BaseController
         $allowedFields = [
             'title', 'description', 'agency_id', 'address', 'postal', 'city', 'price',
             'build_year', 'bedrooms', 'bathrooms', 'living_area', 'surface_area', 'type',
-            'sub_type', 'status', 'visibility', 'auction', 'epc_label', 'epc_value', 'floors', 'availability'
+            'sub_type', 'status', 'epc_label', 'epc_value', 'floors'
         ];
 
         $updateData = [];
@@ -766,14 +736,7 @@ class PropertiesController extends BaseController
                 if (!in_array($value, self::VALID_STATUSES, true)) continue;
             }
 
-            if ($field === 'visibility') {
-                $value = strtolower(trim((string)$value));
-                if (!in_array($value, self::VALID_VISIBILITIES, true)) continue;
-            }
-
-            if (in_array($field, ['auction', 'availability'])) {
-                $value = (int)(bool)$value;
-            } elseif (in_array($field, ['price', 'living_area', 'surface_area'])) {
+            if (in_array($field, ['price', 'living_area', 'surface_area'])) {
                 $value = (float)$value;
             } elseif (in_array($field, ['agency_id', 'build_year', 'bedrooms', 'bathrooms', 'epc_value', 'floors'])) {
                 $value = (int)$value;

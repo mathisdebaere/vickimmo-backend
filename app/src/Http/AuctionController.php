@@ -71,7 +71,7 @@ class AuctionController extends BaseController
             $id = $this->getLastInsertId();
             
             $this->db->executeStatement(
-                'UPDATE properties SET auction = 1 WHERE id = ?',
+                'UPDATE properties SET status = "for auction" WHERE id = ?',
                 [$data['property_id']]
             );
             
@@ -161,7 +161,7 @@ class AuctionController extends BaseController
             );
             
             $this->db->executeStatement(
-                'UPDATE properties SET auction = 0 WHERE id = ?',
+                'UPDATE properties SET status = "sold" WHERE id = ?',
                 [$auction['property_id']]
             );
             
