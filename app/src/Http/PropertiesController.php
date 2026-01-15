@@ -248,7 +248,8 @@ class PropertiesController extends BaseController
 
         $sql = 'SELECT p.*, 
                     a.name AS agency_name,
-                    pi.image_path AS main_image_path
+                    pi.image_path AS main_image_path,
+                    a.logo as agency_logo
                 FROM properties p
                 LEFT JOIN agencies a ON a.id = p.agency_id
                 LEFT JOIN property_images pi ON pi.property_id = p.id AND pi.is_main = 1';
@@ -316,6 +317,12 @@ class PropertiesController extends BaseController
                 $property['main_image_url'] = null;
             }
             unset($property['main_image_path']); // Remove internal field
+
+            if (!empty($property['agency_logo'])) {
+                $property['agency_logo'] = '/uploads/agencies/' . $property['agency_logo'];
+            } else {
+                $property['agency_logo'] = null;
+            }
         }
 
         // Return with pagination metadata
@@ -368,7 +375,7 @@ class PropertiesController extends BaseController
     {
         $properties = $this->db->fetchAllAssociative(
             'SELECT p.*, 
-                    a.name AS agency_name, pi.image_path 
+                    a.name AS agency_name, pi.image_path, a.logo as agency_logo 
             FROM properties p 
             LEFT JOIN property_images pi ON pi.property_id = p.id AND pi.is_main = 1 
             INNER JOIN agencies a ON a.id = p.agency_id 
@@ -385,6 +392,12 @@ class PropertiesController extends BaseController
             }
 
             unset($property['image_path']);
+
+            if (!empty($property['agency_logo'])) {
+                $property['agency_logo'] = '/uploads/agencies/' . $property['agency_logo'];
+            } else {
+                $property['agency_logo'] = null;
+            }
         }
 
         ApiResponse::success($properties);
