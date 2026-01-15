@@ -38,11 +38,14 @@ class FavouritesController
                     p.living_area,
                     p.bedrooms,
                     a.name AS agency_name,
-                    pi.image_path AS main_image_path
+                    a.logo AS agency_logo,
+                    (SELECT pi.image_path 
+                     FROM property_images pi 
+                     WHERE pi.property_id = p.id AND pi.is_main = 1 
+                     LIMIT 1) AS main_image_path
             FROM favourites f
             INNER JOIN properties p ON p.id = f.property_id
             LEFT JOIN agencies a ON a.id = p.agency_id
-            LEFT JOIN property_images pi ON pi.property_id = p.id AND pi.is_main = 1
             WHERE f.user_id = ?
             ORDER BY f.created_at DESC',
             [$userID]
@@ -57,6 +60,13 @@ class FavouritesController
                 $favourite['main_image_url'] = null;
             }
             unset($favourite['main_image_path']);
+            
+            if (!empty($favourite['agency_logo'])) {
+                $favourite['agency_logo'] = 
+                    '/uploads/agencies/' . $favourite['agency_logo'];
+            } else {
+                $favourite['agency_logo'] = null;
+            }
         }
 
         ApiResponse::success([

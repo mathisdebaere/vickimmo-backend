@@ -243,16 +243,18 @@ class PropertiesController extends BaseController
         }
 
         /* ─────────────────────────────
-        BASE QUERY - NOW WITH JOINS
+        BASE QUERY 
         ───────────────────────────── */
 
         $sql = 'SELECT p.*, 
                     a.name AS agency_name,
-                    pi.image_path AS main_image_path,
-                    a.logo as agency_logo
+                    a.logo as agency_logo,
+                    (SELECT pi.image_path 
+                     FROM property_images pi 
+                     WHERE pi.property_id = p.id AND pi.is_main = 1 
+                     LIMIT 1) AS main_image_path
                 FROM properties p
-                LEFT JOIN agencies a ON a.id = p.agency_id
-                LEFT JOIN property_images pi ON pi.property_id = p.id AND pi.is_main = 1';
+                LEFT JOIN agencies a ON a.id = p.agency_id';
 
         if (!empty($conditions)) {
             $sql .= ' WHERE ' . implode(' AND ', $conditions);
@@ -375,9 +377,13 @@ class PropertiesController extends BaseController
     {
         $properties = $this->db->fetchAllAssociative(
             'SELECT p.*, 
-                    a.name AS agency_name, pi.image_path, a.logo as agency_logo 
+                    a.name AS agency_name, 
+                    a.logo as agency_logo,
+                    (SELECT pi.image_path 
+                     FROM property_images pi 
+                     WHERE pi.property_id = p.id AND pi.is_main = 1 
+                     LIMIT 1) AS image_path
             FROM properties p 
-            LEFT JOIN property_images pi ON pi.property_id = p.id AND pi.is_main = 1 
             INNER JOIN agencies a ON a.id = p.agency_id 
             WHERE p.agency_id = ? 
             ORDER BY p.created_at DESC',
