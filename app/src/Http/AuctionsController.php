@@ -4,7 +4,7 @@ namespace Http;
 
 use \Services\ApiResponse;
 
-class AuctionController extends BaseController
+class AuctionsController extends BaseController
 {
     private const VALID_AUCTION_STATUSES = ['upcoming', 'active', 'ended'];
 
@@ -12,6 +12,9 @@ class AuctionController extends BaseController
 
     public function overview(): void
     {
+        // Auto-process ended auctions
+        $this->autoProcessEndedAuctions();
+        
         // Optimized: Use LEFT JOIN instead of subqueries
         $auctions = $this->db->fetchAllAssociative(
             'SELECT a.*, 
@@ -239,7 +242,7 @@ class AuctionController extends BaseController
         }
 
         if ($now > $endTime) {
-            ApiResponse::error('Auction has ended.', 422);
+            ApiResponse::error('You can no longer place a bid. The auction has ended.', 422);
             return;
         }
 
@@ -376,6 +379,9 @@ class AuctionController extends BaseController
             return;
         }
 
+        // Auto-process ended auctions
+        $this->autoProcessEndedAuctions();
+
         $auctions = $this->db->fetchAllAssociative(
             'SELECT a.*,
                     (SELECT MAX(b.bid_amount) FROM bids b WHERE b.auction_id = a.id) as current_price,
@@ -392,6 +398,52 @@ class AuctionController extends BaseController
             'property_id' => $propertyID,
             'auctions' => $formattedAuctions
         ]);
+    }
+
+    public function processEndedAuctions(): void
+    {
+        try {
+            $now = date('Y-m-d H:i:s');
+            
+            // Find all auctions that have ended but their properties are still "for auction"
+            $endedAuctions = $this->db->fetchAllAssociative(
+                'SELECT a.id, a.property_id, 
+                        (SELECT COUNT(*) FROM bids b WHERE b.auction_id = a.id) as bid_count
+                 FROM auctions a
+                 JOIN properties p ON a.property_id = p.id
+                 WHERE a.ending_time <= ? 
+                   AND p.status = "for auction"',
+                [$now]
+            );
+
+            $processed = 0;
+            foreach ($endedAuctions as $auction) {
+                $bidCount = (int)$auction['bid_count'];
+                $newStatus = $bidCount > 0 ? 'sold' : 'for sale';
+                
+                $this->db->executeStatement(
+                    'UPDATE properties SET status = ? WHERE id = ?',
+                    [$newStatus, $auction['property_id']]
+                );
+                
+                // Delete the auction after processing
+                $this->db->executeStatement(
+                    'DELETE FROM auctions WHERE id = ?',
+                    [$auction['id']]
+                );
+                
+                $processed++;
+                echo "Auction {$auction['id']} ended - Property {$auction['property_id']} set to '$newStatus' ($bidCount bids) - Auction deleted\n";
+            }
+
+            ApiResponse::success([
+                'message' => "Processed $processed ended auction(s).",
+                'processed' => $processed
+            ]);
+
+        } catch (\Throwable $e) {
+            ApiResponse::error('Failed to process ended auctions: ' . $e->getMessage(), 500);
+        }
     }
 
     // PRIVATE HELPER METHODS
@@ -586,6 +638,46 @@ class AuctionController extends BaseController
             return (int)$this->db->lastInsertId();
         } catch (\Throwable) {
             return null;
+        }
+    }
+
+    /**
+     * Automatically process ended auctions (silent background operation)
+     * Updates property status to 'for sale' (no bids) or 'sold' (with bids)
+     */
+    private function autoProcessEndedAuctions(): void
+    {
+        try {
+            $now = date('Y-m-d H:i:s');
+            
+            $endedAuctions = $this->db->fetchAllAssociative(
+                'SELECT a.id, a.property_id, 
+                        (SELECT COUNT(*) FROM bids b WHERE b.auction_id = a.id) as bid_count
+                 FROM auctions a
+                 JOIN properties p ON a.property_id = p.id
+                 WHERE a.ending_time <= ? 
+                   AND p.status = "for auction"',
+                [$now]
+            );
+
+            foreach ($endedAuctions as $auction) {
+                $bidCount = (int)$auction['bid_count'];
+                $newStatus = $bidCount > 0 ? 'sold' : 'for sale';
+                
+                $this->db->executeStatement(
+                    'UPDATE properties SET status = ? WHERE id = ?',
+                    [$newStatus, $auction['property_id']]
+                );
+                
+                // Delete the auction after processing
+                $this->db->executeStatement(
+                    'DELETE FROM auctions WHERE id = ?',
+                    [$auction['id']]
+                );
+            }
+        } catch (\Throwable $e) {
+            // Silent fail - don't interrupt the main request
+            error_log("Auto-process auctions failed: " . $e->getMessage());
         }
     }
 }

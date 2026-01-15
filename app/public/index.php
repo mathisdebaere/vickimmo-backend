@@ -57,6 +57,8 @@ $router->mount('/api', function() use ($router) {
     $router->get('/auctions/status/active', 'AuctionsController@getActiveAuctions');
     $router->get('/auctions/status/upcoming', 'AuctionsController@getUpcomingAuctions');
     $router->get('/auctions/status/ended', 'AuctionsController@getEndedAuctions');
+    // Process ended auctions (cron/scheduled task endpoint)
+    $router->post('/auctions/process-ended', 'AuctionsController@processEndedAuctions');
 
     // Property auctions
     $router->get('/properties/(\d+)/auctions', 'AuctionsController@getAuctionsByProperty');
