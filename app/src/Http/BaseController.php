@@ -36,4 +36,47 @@ abstract class BaseController
     {
         return (bool)$this->db->fetchOne("SELECT COUNT(*) FROM $table WHERE id = ?", [$id]);
     }
+
+    protected function userExists(int $id): bool
+    {
+        return $this->entityExists('users', $id);
+    }
+
+    protected function agencyExists(int $id): bool
+    {
+        return $this->entityExists('agencies', $id);
+    }
+
+    protected function propertyExists(int $id): bool
+    {
+        return $this->entityExists('properties', $id);
+    }
+
+    protected function getLastInsertId(): int
+    {
+        return (int)$this->db->lastInsertId();
+    }
+
+    protected function validateEmail(string $email): bool
+    {
+        return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+    }
+
+    protected function validatePhone(string $phone): bool
+    {
+        return preg_match('/^\d{10,15}$/', $phone) === 1;
+    }
+
+    protected function validateUrl(string $url): bool
+    {
+        return filter_var($url, FILTER_VALIDATE_URL) !== false;
+    }
+
+    protected function emailExists(string $email): bool
+    {
+        return (bool)$this->db->fetchOne(
+            "SELECT COUNT(*) FROM users WHERE email = ?",
+            [$email]
+        );
+    }
 }

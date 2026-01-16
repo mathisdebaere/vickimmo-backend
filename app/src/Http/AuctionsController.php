@@ -598,11 +598,6 @@ class AuctionsController extends BaseController
         return $result !== false;
     }
 
-    private function propertyExists(int $propertyID): bool
-    {
-        return $this->entityExists('properties', $propertyID);
-    }
-
     private function propertyHasActiveAuction(int $propertyID): bool
     {
         $now = date('Y-m-d H:i:s');
@@ -630,15 +625,6 @@ class AuctionsController extends BaseController
     {
         $d = \DateTime::createFromFormat('Y-m-d H:i:s', $datetime);
         return $d && $d->format('Y-m-d H:i:s') === $datetime;
-    }
-
-    private function getLastInsertId(): ?int
-    {
-        try {
-            return (int)$this->db->lastInsertId();
-        } catch (\Throwable) {
-            return null;
-        }
     }
 
     /**

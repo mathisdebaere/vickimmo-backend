@@ -137,6 +137,9 @@ $router->mount('/api', function() use ($router) {
     $router->post('/agencies/(\d+)/reviews', 'AgenciesController@postReview');
     $router->delete('/agencies/(\d+)/reviews/(\d+)', 'AgenciesController@deleteReview');
 
+    // Analytics
+    $router->get('/agencies/analytics', 'AgenciesController@analyticsOverview');
+
     // Agency properties
     $router->get('/agencies/(\d+)/properties', 'PropertiesController@getPropertiesByAgency');
 });

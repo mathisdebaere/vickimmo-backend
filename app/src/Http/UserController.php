@@ -309,23 +309,4 @@ class UsersController extends BaseController
         return $updateData;
     }
 
-    private function userExists(int $id): bool
-    {
-        return $this->db->fetchOne('SELECT COUNT(*) FROM users WHERE id = ?', [$id]) > 0;
-    }
-
-    private function emailExists(string $email): bool
-    {
-        return $this->db->fetchOne('SELECT COUNT(*) FROM users WHERE email = ?', [strtolower($email)]) > 0;
-    }
-
-    private function getLastInsertId(): int
-    {
-        return (int)$this->db->lastInsertId();
-    }
-
-    private function validatePhone(string $phone): bool
-    {
-        return (bool)preg_match('/^[\d\s\+\-\(\)]+$/', $phone);
-    }
 }

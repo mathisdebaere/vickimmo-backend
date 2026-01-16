@@ -301,16 +301,6 @@ class EmployeesController extends BaseController
         return $errors;
     }
 
-    private function agencyExists(int $agencyID): bool
-    {
-        return $this->entityExists('agencies', $agencyID);
-    }
-
-    private function userExists(int $userID): bool
-    {
-        return $this->entityExists('users', $userID);
-    }
-
     private function getUserRole(int $userID): ?string
     {
         $result = $this->db->fetchOne('SELECT role FROM users WHERE id = ?', [$userID]);

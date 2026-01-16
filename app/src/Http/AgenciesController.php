@@ -675,20 +675,7 @@ class AgenciesController extends BaseController
         return $errors;
     }
 
-    private function agencyExists(int $id): bool
-    {
-        return $this->entityExists('agencies', $id);
-    }
 
-    private function userExists(int $userId): bool
-    {
-        return $this->entityExists('users', $userId);
-    }
-
-    private function getLastInsertId(): int
-    {
-        return (int)$this->db->lastInsertId();
-    }
 
     private function reviewExists(int $userId, int $agencyId): bool
     {
@@ -736,18 +723,93 @@ class AgenciesController extends BaseController
         }
     }
 
-    private function validatePhone(string $phone): bool
+    // ANALYTICS
+
+    public function analyticsOverview(): void
     {
-        return preg_match('/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/', $phone) === 1;
+        // Get agencies with their stats
+        $agencies = $this->db->fetchAllAssociative(
+            'SELECT 
+                a.id,
+                a.name,
+                a.logo,
+                COUNT(DISTINCT p.id) AS property_count,
+                COUNT(DISTINCT r.user_id) AS review_count,
+                ROUND(AVG(r.rating), 2) AS avg_rating
+            FROM agencies a
+            LEFT JOIN properties p ON p.agency_id = a.id
+            LEFT JOIN reviews r ON r.agency_id = a.id
+            GROUP BY a.id'
+        );
+
+        // For each agency, get favourites count and weekly favourites data
+        $analyticsData = [];
+        foreach ($agencies as $agency) {
+            $agencyId = (int)$agency['id'];
+
+            // Get total favourites count for this agency's properties
+            $favouritesResult = $this->db->fetchAssociative(
+                'SELECT COUNT(*) as total_favourites
+                FROM favourites f
+                INNER JOIN properties p ON p.id = f.property_id
+                WHERE p.agency_id = ?',
+                [$agencyId]
+            );
+
+            // Get favourites per day for the last 7 days
+            $weeklyFavourites = $this->db->fetchAllAssociative(
+                'SELECT 
+                    DATE(f.created_at) as date,
+                    COUNT(*) as count
+                FROM favourites f
+                INNER JOIN properties p ON p.id = f.property_id
+                WHERE p.agency_id = ?
+                    AND f.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                GROUP BY DATE(f.created_at)
+                ORDER BY date ASC',
+                [$agencyId]
+            );
+
+            // Format weekly data to include all 7 days (fill missing days with 0)
+            $weeklyData = [];
+            for ($i = 6; $i >= 0; $i--) {
+                $date = date('Y-m-d', strtotime("-$i days"));
+                $found = false;
+                foreach ($weeklyFavourites as $fav) {
+                    if ($fav['date'] === $date) {
+                        $weeklyData[] = [
+                            'date' => $date,
+                            'count' => (int)$fav['count']
+                        ];
+                        $found = true;
+                        break;
+                    }
+                }
+                if (!$found) {
+                    $weeklyData[] = [
+                        'date' => $date,
+                        'count' => 0
+                    ];
+                }
+            }
+
+            $analyticsData[] = [
+                'id' => $agencyId,
+                'name' => $agency['name'],
+                'logo_url' => $agency['logo'] ? '/uploads/agencies/' . $agency['logo'] : null,
+                'property_count' => (int)$agency['property_count'],
+                'review_count' => (int)$agency['review_count'],
+                'avg_rating' => $agency['avg_rating'] ? (float)$agency['avg_rating'] : null,
+                'total_favourites' => (int)($favouritesResult['total_favourites'] ?? 0),
+                'weekly_favourites' => $weeklyData
+            ];
+        }
+
+        ApiResponse::success([
+            'count' => count($analyticsData),
+            'analytics' => $analyticsData
+        ]);
     }
 
-    private function validateUrl(string $url): bool
-    {
-        return filter_var($url, FILTER_VALIDATE_URL) !== false;
-    }
 
-    private function validateEmail(string $email): bool
-    {
-        return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
-    }
 }

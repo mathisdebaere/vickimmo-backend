@@ -440,18 +440,6 @@ class AuthController extends BaseController
         );
     }
 
-    private function getLastInsertId(): int
-    {
-        return (int)$this->db->lastInsertId();
-    }
-
-    private function emailExists(string $email): bool
-    {
-        return (bool)$this->db->fetchOne(
-            'SELECT COUNT(*) FROM users WHERE email = ?',
-            [strtolower(trim($email))]
-        );
-    }
     private function isStrongPassword(string $password): bool 
     {
         return preg_match(

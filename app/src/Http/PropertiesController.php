@@ -916,11 +916,6 @@ class PropertiesController extends BaseController
         return $updateData;
     }
 
-    private function propertyExists(int $propertyID): bool
-    {
-        return $this->entityExists('properties', $propertyID);
-    }
-
     private function featureExists(string $name): bool
     {
         $result = $this->db->fetchAssociative(
@@ -944,11 +939,6 @@ class PropertiesController extends BaseController
         );
         
         return $result !== false;
-    }
-
-    private function getLastInsertId(): int
-    {
-        return (int)$this->db->lastInsertId();
     }
 
     private function normalizeFilesArray(array $files): array

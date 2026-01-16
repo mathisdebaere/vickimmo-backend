@@ -3,17 +3,9 @@
 namespace Http;
 
 use \Services\ApiResponse;
-use \Services\DatabaseConnector;
 
-class FavouritesController
+class FavouritesController extends BaseController
 {
-    protected \Doctrine\DBAL\Connection $db;
-
-    public function __construct()
-    {
-        $this->db = DatabaseConnector::getConnection();
-    }
-
     public function methodNotAllowed(): void
     {
         ApiResponse::error('HTTP request method ' . $_SERVER['REQUEST_METHOD'] . ' not allowed.', 405);
@@ -174,26 +166,6 @@ class FavouritesController
 
     // PRIVATE HELPER METHODS
 
-    private function entityExists(string $table, int $id): bool
-    {
-        $result = $this->db->fetchAssociative(
-            'SELECT id FROM ' . $table . ' WHERE id = ?',
-            [$id]
-        );
-        
-        return $result !== false;
-    }
-
-    private function userExists(int $userID): bool
-    {
-        return $this->entityExists('users', $userID);
-    }
-
-    private function propertyExists(int $propertyID): bool
-    {
-        return $this->entityExists('properties', $propertyID);
-    }
-
     private function favouriteExists(
         int $userID, 
         int $propertyID
@@ -207,8 +179,4 @@ class FavouritesController
         return $result !== false;
     }
 
-    private function getLastInsertId(): int
-    {
-        return (int)$this->db->lastInsertId();
-    }
 }
