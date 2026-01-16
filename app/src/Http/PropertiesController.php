@@ -492,6 +492,59 @@ class PropertiesController extends BaseController
         }
     }
 
+    public function deleteByID(int $propertyID): void
+    {
+        if (!$this->propertyExists($propertyID)) {
+            ApiResponse::error('Property not found', 404);
+            return;
+        }
+
+        try {
+            // Delete all associated images first
+            $this->deleteAllImagesInternal($propertyID);
+
+            // Delete property features
+            $this->db->executeStatement(
+                'DELETE FROM property_features WHERE property_id = ?',
+                [$propertyID]
+            );
+
+            // Delete favourites
+            $this->db->executeStatement(
+                'DELETE FROM favourites WHERE property_id = ?',
+                [$propertyID]
+            );
+
+            // Delete auctions and bids
+            $auctions = $this->db->fetchAllAssociative(
+                'SELECT id FROM auctions WHERE property_id = ?',
+                [$propertyID]
+            );
+
+            foreach ($auctions as $auction) {
+                $this->db->executeStatement(
+                    'DELETE FROM bids WHERE auction_id = ?',
+                    [$auction['id']]
+                );
+            }
+
+            $this->db->executeStatement(
+                'DELETE FROM auctions WHERE property_id = ?',
+                [$propertyID]
+            );
+
+            // Finally delete the property itself
+            $this->db->executeStatement(
+                'DELETE FROM properties WHERE id = ?',
+                [$propertyID]
+            );
+
+            ApiResponse::success(['message' => 'Property and all associated data deleted successfully.'], status: 200);
+        } catch (\Throwable $e) {
+            ApiResponse::error('Failed to delete property: ' . $e->getMessage(), 500);
+        }
+    }
+
     // IMAGE MANAGEMENT
 
     public function getAllImg(int $propertyID): void

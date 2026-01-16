@@ -40,10 +40,12 @@ class AgenciesController extends BaseController
                 a.created_at,
                 a.updated_at,
                 COUNT(DISTINCT p.id) AS property_count,
+                COUNT(DISTINCT ae.user_id) AS employee_count,
                 COUNT(r.user_id) AS review_count,
                 ROUND(AVG(r.rating), 2) AS avg_rating
             FROM agencies a
             LEFT JOIN properties p ON p.agency_id = a.id
+            LEFT JOIN agencies_employees ae ON ae.agency_id = a.id
             LEFT JOIN reviews r ON r.agency_id = a.id';
 
         if (!empty($conditions)) {
@@ -108,6 +110,7 @@ class AgenciesController extends BaseController
                 
                 // Add the statistics
                 $formatted['property_count'] = (int)$agency['property_count'];
+                $formatted['employee_count'] = (int)$agency['employee_count'];
                 $formatted['review_count'] = (int)$agency['review_count'];
                 $formatted['avg_rating'] = $agency['avg_rating'] !== null
                     ? (float)$agency['avg_rating']
@@ -171,16 +174,24 @@ class AgenciesController extends BaseController
             return;
         }
 
-        // Get average rating and review count
+        // Get average rating, review count, and employee count
         $stats = $this->db->fetchAssociative(
-            'SELECT COUNT(*) as review_count, AVG(rating) as avg_rating 
-            FROM reviews 
-            WHERE agency_id = ?',
+            'SELECT COUNT(DISTINCT r.user_id) as review_count, 
+                    AVG(r.rating) as avg_rating,
+                    COUNT(DISTINCT ae.user_id) as employee_count,
+                    COUNT(DISTINCT p.id) as property_count
+            FROM agencies a
+            LEFT JOIN reviews r ON r.agency_id = a.id
+            LEFT JOIN agencies_employees ae ON ae.agency_id = a.id
+            LEFT JOIN properties p ON p.agency_id = a.id
+            WHERE a.id = ?',
             [$id]
         );
 
         $response = $this->formatAgencyResponse($agency);
         $response['review_count'] = (int)($stats['review_count'] ?? 0);
+        $response['employee_count'] = (int)($stats['employee_count'] ?? 0);
+        $response['property_count'] = (int)($stats['property_count'] ?? 0);
         $response['avg_rating'] = $stats['avg_rating'] ? round((float)$stats['avg_rating'], 2) : null;
 
         ApiResponse::success($response);
