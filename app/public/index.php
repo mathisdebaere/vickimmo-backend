@@ -15,6 +15,8 @@ $router->setNamespace('\Http');
 $router->mount('/api', function() use ($router) {
     // CORS: API response can be shared with javascript code from origin ALLOW_ORIGIN
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
     header('Access-Control-Allow-Credentials: true');
 
     // Properties
@@ -23,6 +25,7 @@ $router->mount('/api', function() use ($router) {
     $router->get('/properties/(\d+)', 'PropertiesController@getByID');
     $router->put('/properties/(\d+)', 'PropertiesController@putByID');
     $router->delete('/properties/(\d+)', 'PropertiesController@deleteByID');
+    $router->patch('/properties/(\d+)/visibility', 'PropertiesController@toggleVisibility');
 
     // Images
     $router->get('/properties/(\d+)/images', 'PropertiesController@getAllImg');
@@ -33,14 +36,13 @@ $router->mount('/api', function() use ($router) {
     // Features
     $router->get('/properties/features', 'PropertiesController@featuresOverview');
     $router->post('/properties/features', 'PropertiesController@postFeature');
-    $router->delete('/properties/features/(\d+)', 'PropertiesController@deleteFeature');
     $router->get('/properties/(\d+)/features', 'PropertiesController@propertyFeaturesOverview');
     $router->post('/properties/(\d+)/features/(\d+)', 'PropertiesController@postFeatureToProperty');
     $router->delete('/properties/(\d+)/features/(\d+)', 'PropertiesController@deleteFeatureFromProperty');
     $router->delete('/properties/(\d+)/features', 'PropertiesController@deleteAllFeaturesFromProperty');
 });
 
-// Favourites routes
+// favourites routes
 $router->mount('/api', function() use ($router) {
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
     header('Access-Control-Allow-Credentials: true');
@@ -49,25 +51,19 @@ $router->mount('/api', function() use ($router) {
     $router->post('/favourites/(\d+)/(\d+)', 'FavouritesController@post');
     $router->get('/favourites/(\d+)/(\d+)', 'FavouritesController@check');
     $router->delete('/favourites/(\d+)/(\d+)', 'FavouritesController@delete');
-    $router->delete('/favourites/(\d+)', 'FavouritesController@deleteAll');
 });
 
 // Auctions routes
 $router->mount('/api', function() use ($router) {
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
     header('Access-Control-Allow-Credentials: true');
 
     // Auctions
     $router->get('/auctions', 'AuctionsController@overview');
     $router->post('/auctions', 'AuctionsController@post');
     $router->get('/auctions/(\d+)', 'AuctionsController@getByID');
-    $router->put('/auctions/(\d+)', 'AuctionsController@putByID');
-    $router->delete('/auctions/(\d+)', 'AuctionsController@deleteByID');
-
-    // Auction status filters
-    $router->get('/auctions/status/active', 'AuctionsController@getActiveAuctions');
-    $router->get('/auctions/status/upcoming', 'AuctionsController@getUpcomingAuctions');
-    $router->get('/auctions/status/ended', 'AuctionsController@getEndedAuctions');
 
     // Property auctions
     $router->get('/properties/(\d+)/auctions', 'AuctionsController@getAuctionsByProperty');
@@ -75,13 +71,16 @@ $router->mount('/api', function() use ($router) {
     // Bids
     $router->get('/auctions/(\d+)/bids', 'AuctionsController@getAllBids');
     $router->post('/auctions/(\d+)/bids', 'AuctionsController@postBid');
-    $router->delete('/auctions/(\d+)/bids/(\d+)', 'AuctionsController@deleteBid');
-    $router->delete('/auctions/(\d+)/bids', 'AuctionsController@deleteAllBids');
+
+    // Process ended auctions (cron/scheduled task endpoint)
+    $router->post('/auctions/process-ended', 'AuctionsController@processEndedAuctions');
 });
 
 // Authentication routes
 $router->mount('/auth', function() use ($router) {
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
     header('Access-Control-Allow-Credentials: true');
     
     // Public authentication routes
@@ -92,7 +91,6 @@ $router->mount('/auth', function() use ($router) {
     $router->post('/logout', 'AuthController@logout');
     $router->get('/account', 'AuthController@account');
     $router->put('/account', 'AuthController@updateProfile');
-    $router->put('/account/password', 'AuthController@changePassword');
     $router->post('/refresh', 'AuthController@refreshToken');
 });
 
@@ -100,6 +98,8 @@ $router->mount('/auth', function() use ($router) {
 $router->mount('/api', function() use ($router) {
     // CORS: API response can be shared with javascript code from origin ALLOW_ORIGIN
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
     header('Access-Control-Allow-Credentials: true');
 
     $router->get('/users', 'UsersController@overview');
@@ -113,6 +113,8 @@ $router->mount('/api', function() use ($router) {
 $router->mount('/api', function() use ($router) {
     // CORS: API response can be shared with javascript code from origin ALLOW_ORIGIN
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
     header('Access-Control-Allow-Credentials: true');
 
     $router->get('/agencies', 'AgenciesController@overview');
@@ -126,37 +128,51 @@ $router->mount('/api', function() use ($router) {
 
     $router->get('/agencies/(\d+)/reviews', 'AgenciesController@reviewsOverview');
     $router->post('/agencies/(\d+)/reviews', 'AgenciesController@postReview');
-    $router->put('/agencies/(\d+)/reviews/(\d+)', 'AgenciesController@putReview');
     $router->delete('/agencies/(\d+)/reviews/(\d+)', 'AgenciesController@deleteReview');
+
+    // Analytics
+    $router->get('/agencies/analytics', 'AgenciesController@analyticsOverview');
+
+    // Agency properties
+    $router->get('/agencies/(\d+)/properties', 'PropertiesController@getPropertiesByAgency');
+});
+
+// Contact routes
+$router->mount('/api', function() use ($router) {
+    header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Methods: POST, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type');
+    header('Access-Control-Allow-Credentials: true');
+
+    $router->post('/contact', 'ContactController@sendContactForm');
 });
 
 // Employees routes
 $router->mount('/api', function() use ($router) {
     // CORS: API response can be shared with javascript code from origin ALLOW_ORIGIN
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
     header('Access-Control-Allow-Credentials: true');
 
-    $router->get('/employees/(\d+)', 'EmployeesController@overview');
-    $router->post('/employees/(\d+)', 'EmployeesController@post');
-    $router->delete('/employees/(\d+)', 'EmployeesController@deleteByID');
+    // Employee utilities
+    $router->get('/employees/(\d+)/agencies', 'EmployeesController@getAgenciesByEmployee');
 });
 
 // Agency Employees routes
 $router->mount('/api', function() use ($router) {
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
     header('Access-Control-Allow-Credentials: true');
 
     // Agency Employees
     $router->get('/agencies/(\d+)/employees', 'EmployeesController@overview');
     $router->post('/agencies/(\d+)/employees', 'EmployeesController@post');
-    $router->get('/agencies/(\d+)/employees/(\d+)', 'EmployeesController@getByID');
     $router->delete('/agencies/(\d+)/employees/(\d+)', 'EmployeesController@deleteByID');
-    $router->delete('/agencies/(\d+)/employees', 'EmployeesController@deleteAll');
 
     // Employee utilities
     $router->get('/employees/(\d+)/agencies', 'EmployeesController@getAgenciesByEmployee');
-    $router->get('/agencies/(\d+)/employees/count', 'EmployeesController@getEmployeeCount');
-    $router->get('/agencies/(\d+)/employees/(\d+)/check', 'EmployeesController@checkEmployeeInAgency');
 });
 
 // CORS: Preflight request handler for authentication routes
@@ -170,7 +186,7 @@ $router->options('/auth/.*', function() {
 // CORS: Preflight request handler for API routes
 $router->options('/api/.*', function() {
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
-    header('Access-Control-Allow-Methods: POST, GET, PUT, DELETE, OPTIONS');
+    header('Access-Control-Allow-Methods: POST, GET, PUT, PATCH, DELETE, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type, Authorization');
     header('Access-Control-Allow-Credentials: true');
 });

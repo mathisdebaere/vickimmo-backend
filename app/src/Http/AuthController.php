@@ -3,17 +3,10 @@
 namespace Http;
 
 use \Services\ApiResponse;
-use \Services\DatabaseConnector;
 use \Services\JWTService;
 
-class AuthController
+class AuthController extends BaseController
 {
-    protected \Doctrine\DBAL\Connection $db;
-    
-    public function __construct()
-    {
-        $this->db = DatabaseConnector::getConnection();
-    }
 
     private function getSecretKey(): string
     {
@@ -24,7 +17,6 @@ class AuthController
         return $key;
     }
 
-    // Separate secret for refresh tokens (more secure)
     private function getRefreshSecretKey(): string
     {
         $key = $_ENV['JWT_REFRESH_SECRET_KEY'] ?? $this->getSecretKey();
@@ -32,11 +24,6 @@ class AuthController
             throw new \Exception('JWT_REFRESH_SECRET_KEY must be at least 32 characters.');
         }
         return $key;
-    }
-
-    public function methodNotAllowed(): void
-    {
-        ApiResponse::error('HTTP request method ' . $_SERVER['REQUEST_METHOD'] . ' not allowed.', 405);
     }
     
     private function getAccessTokenLifetime(): int
@@ -90,8 +77,10 @@ class AuthController
                     'email' => $email,
                     'role' => $role
                 ];
-                // Generate both access and refresh tokens
                 $tokens = $this->generateTokenPair($user);
+                
+                $this->setRefreshTokenCookie($tokens['refreshToken']);
+                
                 ApiResponse::success([
                     'message' => 'User registered successfully.',
                     'user' => [
@@ -101,7 +90,6 @@ class AuthController
                         'role' => $role
                     ],
                     'accessToken' => $tokens['accessToken'],
-                    'refreshToken' => $tokens['refreshToken'],
                     'expiresIn' => $this->getAccessTokenLifetime()
                 ], status: 201);
             } else {
@@ -133,19 +121,19 @@ class AuthController
         );
 
         if ($user === false) {
-            ApiResponse::error('Invalid credentials.', 401);
+            ApiResponse::error('Username and / or password are incorrect.', 401);
             return;
         }
 
         if (!password_verify($password, $user['password'])) {
-            ApiResponse::error('Invalid credentials.', 401);
+            ApiResponse::error('Username and / or password are incorrect.', 401);
             return;
         }
 
-        // Generate both access and refresh tokens
         $tokens = $this->generateTokenPair($user);
 
-        // Optional: Update last login
+        $this->setRefreshTokenCookie($tokens['refreshToken']);
+
         $this->db->executeStatement(
             'UPDATE users SET updated_at = NOW() WHERE id = ?',
             [$user['id']]
@@ -160,7 +148,6 @@ class AuthController
                 'role' => $user['role']
             ],
             'accessToken' => $tokens['accessToken'],
-            'refreshToken' => $tokens['refreshToken'],
             'expiresIn' => $this->getAccessTokenLifetime()
         ]);
     }
@@ -169,32 +156,38 @@ class AuthController
     {
         $token = $this->getBearerToken();
         
-        if (!$token) {
-            ApiResponse::success([
-                'message' => 'Logout successful.'
-            ]);
-            return;
+        $userId = null;
+        if ($token) {
+            try {
+                $decoded = JWTService::validateJWTToken($token, $this->getSecretKey());
+                $userId = (int)$decoded->sub;
+            } catch (\Exception) {
+            }
         }
-
-        try {
-            // Invalidate the refresh token
-            $decoded = JWTService::validateJWTToken($token, $this->getSecretKey());
-            $userId = (int)$decoded->sub;
-            
-            // If you have a refresh_tokens table, delete user's tokens
+        
+        if ($userId === null) {
+            $refreshToken = $_COOKIE['refreshToken'] ?? '';
+            if ($refreshToken !== '') {
+                try {
+                    $decoded = JWTService::validateJWTToken($refreshToken, $this->getRefreshSecretKey());
+                    $userId = (int)$decoded->sub;
+                } catch (\Exception) {
+                }
+            }
+        }
+        
+        if ($userId !== null) {
             $this->db->executeStatement(
                 'DELETE FROM refresh_tokens WHERE user_id = ?',
                 [$userId]
             );
-
-            ApiResponse::success([
-                'message' => 'Logout successful. All tokens have been invalidated.'
-            ]);
-        } catch (\Exception) {
-            ApiResponse::success([
-                'message' => 'Logout successful.'
-            ]);
         }
+
+        $this->clearRefreshTokenCookie();
+
+        ApiResponse::success([
+            'message' => 'Logout successful.'
+        ]);
     }
 
     public function account(): void
@@ -292,104 +285,16 @@ class AuthController
         }
     }
 
-    public function changePassword(): void
-    {
-        $token = $this->getBearerToken();
-        
-        if (!$token) {
-            ApiResponse::error('Authorization token is required.', 401);
-            return;
-        }
-
-        try {
-            $decoded = JWTService::validateJWTToken($token, $this->getSecretKey());
-            $userId = (int)$decoded->sub;
-        } catch (\Exception $e) {
-            ApiResponse::error($e->getMessage(), 401);
-            return;
-        }
-
-        $data = $this->getJsonInput();
-        if ($data === null) {
-            return;
-        }
-
-        $currentPassword = isset($data['current_password']) ? (string)$data['current_password'] : '';
-        $newPassword = isset($data['new_password']) ? (string)$data['new_password'] : '';
-        $confirmPassword = isset($data['confirm_password']) ? (string)$data['confirm_password'] : '';
-
-        if ($currentPassword === '' || $newPassword === '' || $confirmPassword === '') {
-            ApiResponse::error('All password fields are required.', 422);
-            return;
-        }
-
-        if (!$this->isStrongPassword($newPassword)) {
-            ApiResponse::error('Password does not meet security requirements.', 422);
-            return;
-        }
-
-
-        if ($newPassword !== $confirmPassword) {
-            ApiResponse::error('New password and confirmation do not match.', 422);
-            return;
-        }
-
-        $user = $this->db->fetchAssociative(
-            'SELECT password FROM users WHERE id = ?',
-            [$userId]
-        );
-
-        if (!password_verify($currentPassword, $user['password'])) {
-            ApiResponse::error('Current password is incorrect.', 401);
-            return;
-        }
-
-        $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
-
-        $this->db->executeStatement(
-            'UPDATE users SET password = ?, updated_at = NOW() WHERE id = ?',
-            [$hashedPassword, $userId]
-        );
-
-        // Invalidate all refresh tokens for security
-        $this->db->executeStatement(
-            'DELETE FROM refresh_tokens WHERE user_id = ?',
-            [$userId]
-        );
-
-        ApiResponse::success([
-            'message' => 'Password changed successfully. Please log in again.'
-        ]);
-    }
-
-    private function isStrongPassword(string $password): bool 
-    {
-        return preg_match(
-            '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/',
-            $password
-        ) === 1;
-    }
-
-
-    /**
-     * Refresh access token using a valid refresh token
-     */
     public function refreshToken(): void
     {
-        $data = $this->getJsonInput();
-        if ($data === null) {
-            return;
-        }
-
-        $refreshToken = isset($data['refreshToken']) ? trim((string)$data['refreshToken']) : '';
+        $refreshToken = $_COOKIE['refreshToken'] ?? '';
         
         if ($refreshToken === '') {
-            ApiResponse::error('Refresh token is required.', 400);
+            ApiResponse::error('No refresh token provided.', 401);
             return;
         }
 
         try {
-            // Validate refresh token with refresh secret
             $decoded = JWTService::validateJWTToken(
                 $refreshToken,
                 $this->getRefreshSecretKey()
@@ -397,32 +302,16 @@ class AuthController
             
             $userId = (int)$decoded->sub;
 
-            // Verify refresh token exists in database and is not revoked
-            $storedToken = $this->db->fetchAssociative(
-                'SELECT id, user_id, expires_at, revoked FROM refresh_tokens WHERE token = ? AND user_id = ?',
-                [$refreshToken, $userId]
+            $deleted = $this->db->executeStatement(
+                'DELETE FROM refresh_tokens WHERE token = ?',
+                [$refreshToken]
             );
 
-            if ($storedToken === false) {
-                ApiResponse::error('Invalid refresh token.', 401);
+            if ($deleted === 0) {
+                ApiResponse::error('Invalid or already used refresh token.', 401);
                 return;
             }
 
-            if ($storedToken['revoked']) {
-                ApiResponse::error('Refresh token has been revoked.', 401);
-                return;
-            }
-
-            // Check if token is expired
-            $expiresAt = new \DateTime($storedToken['expires_at']);
-            $now = new \DateTime();
-            
-            if ($now > $expiresAt) {
-                ApiResponse::error('Refresh token has expired.', 401);
-                return;
-            }
-
-            // Get fresh user data
             $user = $this->db->fetchAssociative(
                 'SELECT id, name, email, role FROM users WHERE id = ?',
                 [$userId]
@@ -433,57 +322,60 @@ class AuthController
                 return;
             }
 
-            // Generate new access token (and optionally a new refresh token)
             $accessToken = JWTService::generateJWTToken(
                 $user,
                 $this->getSecretKey(),
                 $this->getAccessTokenLifetime()
             );
 
-            // Optional: Rotate refresh token (generate new one and revoke old)
-            $rotateRefreshToken = ($_ENV['ROTATE_REFRESH_TOKENS'] ?? 'false') === 'true';
-            
-            if ($rotateRefreshToken) {
-                // Revoke old refresh token
-                $this->db->executeStatement(
-                    'UPDATE refresh_tokens SET revoked = 1 WHERE id = ?',
-                    [$storedToken['id']]
-                );
+            $newRefreshToken = JWTService::generateJWTToken(
+                $user,
+                $this->getRefreshSecretKey(),
+                $this->getRefreshTokenLifetime()
+            );
 
-                // Generate new refresh token
-                $newRefreshToken = JWTService::generateJWTToken(
-                    $user,
-                    $this->getRefreshSecretKey(),
-                    $this->getRefreshTokenLifetime()
-                );
+            $this->storeRefreshToken($userId, $newRefreshToken);
+            $this->setRefreshTokenCookie($newRefreshToken);
 
-                // Store new refresh token
-                $this->storeRefreshToken($userId, $newRefreshToken);
-
-                ApiResponse::success([
-                    'message' => 'Token refreshed successfully.',
-                    'accessToken' => $accessToken,
-                    'refreshToken' => $newRefreshToken,
-                    'expiresIn' => $this->getAccessTokenLifetime()
-                ]);
-            } else {
-                // Just return new access token, keep same refresh token
-                ApiResponse::success([
-                    'message' => 'Token refreshed successfully.',
-                    'accessToken' => $accessToken,
-                    'expiresIn' => $this->getAccessTokenLifetime()
-                ]);
-            }
+            ApiResponse::success([
+                'message' => 'Token refreshed successfully.',
+                'accessToken' => $accessToken,
+                'expiresIn' => $this->getAccessTokenLifetime()
+            ]);
         } catch (\Exception $e) {
-            ApiResponse::error('Invalid or expired refresh token: ' . $e->getMessage(), 401);
+            try {
+                $this->db->executeStatement(
+                    'DELETE FROM refresh_tokens WHERE token = ?',
+                    [$refreshToken]
+                );
+            } catch (\Exception) {
+            }
+            
+            $this->cleanupExpiredTokens();
+            
+            ApiResponse::error('Invalid or expired refresh token.', 401);
         }
     }
 
-    // PRIVATE HELPER METHODS
 
-    /**
-     * Generate both access and refresh tokens
-     */
+    private function cleanupExpiredTokens(): void
+    {
+        try {
+            $tokens = $this->db->fetchAllAssociative('SELECT id, token FROM refresh_tokens');
+            
+            foreach ($tokens as $row) {
+                try {
+                    JWTService::validateJWTToken($row['token'], $this->getRefreshSecretKey());
+                } catch (\Exception) {
+                    $this->db->executeStatement('DELETE FROM refresh_tokens WHERE id = ?', [$row['id']]);
+                }
+            }
+        } catch (\Exception) {
+        
+        }
+    }
+
+
     private function generateTokenPair(array $user): array
     {
         $accessToken = JWTService::generateJWTToken(
@@ -498,7 +390,6 @@ class AuthController
             $this->getRefreshTokenLifetime()
         );
 
-        // Store refresh token in database
         $this->storeRefreshToken($user['id'], $refreshToken);
 
         return [
@@ -507,9 +398,6 @@ class AuthController
         ];
     }
 
-    /**
-     * Store refresh token in database
-     */
     private function storeRefreshToken(int $userId, string $token): void
     {
         $expiresAt = (new \DateTime())
@@ -521,17 +409,43 @@ class AuthController
         );
     }
 
-    private function getJsonInput(): ?array
+    private function setRefreshTokenCookie(string $refreshToken): void
     {
-        $input = file_get_contents('php://input');
-        $data = json_decode($input, true);
+        $lifetime = $this->getRefreshTokenLifetime();
+        $secure = ($_ENV['COOKIE_SECURE'] ?? 'false') === 'true'; // true in production with HTTPS
+        
+        setcookie(
+            'refreshToken',           // name
+            $refreshToken,            // value
+            time() + $lifetime,       // expires
+            '/',                      // path
+            '',                       // domain (empty = current domain)
+            $secure,                  // secure (HTTPS only)
+            true                      // httponly (not accessible via JavaScript)
+        );
+    }
 
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            ApiResponse::error('Invalid JSON payload.', 422);
-            return null;
-        }
+    private function clearRefreshTokenCookie(): void
+    {
+        $secure = ($_ENV['COOKIE_SECURE'] ?? 'false') === 'true';
+        
+        setcookie(
+            'refreshToken',           // name
+            '',                       // empty value
+            time() - 3600,            // expires in the past
+            '/',                      // path
+            '',                       // domain
+            $secure,                  // secure
+            true                      // httponly
+        );
+    }
 
-        return $data;
+    private function isStrongPassword(string $password): bool 
+    {
+        return preg_match(
+            '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/',
+            $password
+        ) === 1;
     }
 
     private function validateRegistrationData(array $data): array
@@ -548,7 +462,6 @@ class AuthController
             $errors[] = 'Valid email address is required.';
         }
 
-        // ✅ DEFINE PASSWORD HERE
         $password = isset($data['password']) ? (string)$data['password'] : '';
 
         if ($password === '') {
@@ -582,26 +495,6 @@ class AuthController
         }
 
         return $errors;
-    }
-
-
-    private function emailExists(string $email): bool
-    {
-        $result = $this->db->fetchAssociative(
-            'SELECT id FROM users WHERE email = ?',
-            [$email]
-        );
-        
-        return $result !== false;
-    }
-
-    private function getLastInsertId(): ?int
-    {
-        try {
-            return (int)$this->db->lastInsertId();
-        } catch (\Throwable) {
-            return null;
-        }
     }
 
     private function getBearerToken(): ?string

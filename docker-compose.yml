@@ -1,46 +1,68 @@
 services:
-  php-web:
-    build: docker
-    ports:
-      - "8080:80"
-    volumes:
-      - "./app:/var/www"
-      - "./docker/php.ini:/usr/local/etc/php/php.ini"
-    links:
-      - mariadb
-  mariadb:
-    image: mariadb:10.6.22
-    restart: always
-    ports:
-      - "3307:3306"
-    volumes:
-      - "./docker/mariadb-data:/var/lib/mysql"
-      - "./docker/immo.sql:/docker-entrypoint-initdb.d/dump.sql"
-    environment:
-      - MARIADB_ROOT_PASSWORD=Azerty123
-      - LANG=C.UTF-8
-  myadmin:
-    image: phpmyadmin/phpmyadmin
-    ports:
-      - "8000:80"
-    environment:
-      - PMA_ARBITRARY=0
-      - PMA_HOST=mariadb
-      - UPLOAD_LIMIT=50M
-    restart: always
-    depends_on:
-      - mariadb
-  composer:
-    image: composer
-    command:
-      - install
-    volumes:
-      - "./app:/app"
-    restart: "no"
-  run-command:
-    image: ubuntu:latest
-    entrypoint: [ "/bin/bash", "-c" ]
-    command: "\"cd /home/ubuntu && [ ! -f .env ] && echo '.env is missing. Copying .env.dev ...' && cp .env.dev .env\""
-    volumes:
-      - "./app:/home/ubuntu"
-    restart: "no"
+    php-web:
+        build: docker
+        ports:
+            - "8080:80"
+        volumes:
+            - "./app:/var/www"
+            - "./docker/php.ini:/usr/local/etc/php/php.ini"
+        links:
+            - mariadb
+    mariadb:
+        image: mariadb:10.6.22
+        restart: always
+        ports:
+            - "3307:3306"
+        volumes:
+            - "./docker/mariadb-data:/var/lib/mysql"
+            - "./docker/immo.sql:/docker-entrypoint-initdb.d/dump.sql"
+        environment:
+            - MARIADB_ROOT_PASSWORD=Azerty123
+            - LANG=C.UTF-8
+            - TZ=Europe/Brussels
+        command: --default-time-zone='+01:00'
+    myadmin:
+        image: phpmyadmin/phpmyadmin
+        ports:
+            - "8000:80"
+        environment:
+            - PMA_ARBITRARY=0
+            - PMA_HOST=mariadb
+            - UPLOAD_LIMIT=50M
+        restart: always
+        depends_on:
+            - mariadb
+    composer:
+        image: composer
+        command:
+            - install
+        volumes:
+            - "./app:/app"
+        restart: "no"
+    run-command:
+        image: ubuntu:latest
+        entrypoint: ["/bin/bash", "-c"]
+        command: '"cd /home/ubuntu && [ ! -f .env ] && echo ''.env is missing. Copying .env.dev ...'' && cp .env.dev .env"'
+        volumes:
+            - "./app:/home/ubuntu"
+        restart: "no"
+    websockets:
+        build: docker
+        command: php bin/websockets/server.php
+        ports:
+            - "8081:80"
+        volumes:
+            - "./app:/var/www"
+            - "./docker/php.ini:/usr/local/etc/php/php.ini"
+        links:
+            - mariadb
+        depends_on:
+            composer:
+                condition: service_completed_successfully
+            php-web:
+                condition: service_started
+        environment:
+            - DB_HOST=mariadb
+            - DB_NAME=immo
+            - DB_USER=root
+            - DB_PASS=Azerty123
