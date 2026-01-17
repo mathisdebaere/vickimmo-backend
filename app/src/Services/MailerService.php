@@ -22,16 +22,9 @@ class MailerService
         $this->mailer = new Mailer($transport);
     }
 
-    /**
-     * Bouwt de DSN string voor de mail transport
-     * 
-     * @return string
-     */
     private function buildDsn(): string
     {
         $config = $this->config;
-        
-        // Formaat: smtp://username:password@host:port
         $dsn = sprintf(
             '%s://%s:%s@%s:%d',
             $config['transport'],
@@ -41,29 +34,12 @@ class MailerService
             $config['port']
         );
 
-        // Voeg encryption toe als optie
-        if (!empty($config['encryption'])) {
-            $dsn .= '?encryption=' . $config['encryption'];
-        }
-        
-        // Disable SSL verification voor development (Gmail in Docker)
-        $dsn .= '&verify_peer=0';
+        // Alleen voor development: tijdelijk SSL verificatie uitschakelen
+        $dsn .= '?verify_peer=0';
 
         return $dsn;
     }
 
-    /**
-     * Verstuur een e-mail
-     * 
-     * @param string $to Ontvanger e-mail adres
-     * @param string $subject Onderwerp van de e-mail
-     * @param string $htmlContent HTML content van de e-mail
-     * @param string|null $textContent Plain text versie (optioneel)
-     * @param string|null $replyTo Reply-to adres (optioneel)
-     * @param string|null $toName Naam van de ontvanger (optioneel)
-     * @return bool True als succesvol verzonden
-     * @throws Exception Als verzenden mislukt
-     */
     public function send(
         string $to,
         string $subject,
@@ -73,7 +49,6 @@ class MailerService
         ?string $toName = null
     ): bool {
         try {
-            // Maak het email object
             $email = (new Email())
                 ->from(new Address(
                     $this->config['from']['address'],
@@ -83,51 +58,28 @@ class MailerService
                 ->subject($subject)
                 ->html($htmlContent);
 
-            // Voeg text versie toe als opgegeven
             if ($textContent !== null) {
                 $email->text($textContent);
             }
 
-            // Voeg reply-to toe als opgegeven
-            if ($replyTo !== null) {
-                $email->replyTo($replyTo);
-            }
-
-            // Verstuur de e-mail
             $this->mailer->send($email);
 
             return true;
         } catch (Exception $e) {
-            // Log de error (je kan hier een logger toevoegen)
             error_log('Mailer error: ' . $e->getMessage());
             throw new Exception('Failed to send email: ' . $e->getMessage());
         }
     }
 
-    /**
-     * Verstuur een contact formulier e-mail
-     * Deze methode is specifiek voor contact formulieren
-     * 
-     * @param string $name Naam van de afzender
-     * @param string $email E-mail van de afzender
-     * @param string $category Categorie van het bericht
-     * @param string $message Bericht
-     * @return bool True als succesvol verzonden
-     * @throws Exception Als verzenden mislukt
-     */
     public function sendContactForm(
         string $name,
         string $email,
         string $category,
         string $message
     ): bool {
-        // Bouw de HTML content
         $htmlContent = $this->buildContactEmailHtml($name, $email, $category, $message);
-        
-        // Bouw de text content
         $textContent = $this->buildContactEmailText($name, $email, $category, $message);
 
-        // Verstuur naar het geconfigureerde ontvanger adres
         $success = $this->send(
             to: $this->config['to']['address'],
             subject: 'Contact formulier: ' . $category,
@@ -136,8 +88,6 @@ class MailerService
             replyTo: $email,
             toName: $this->config['to']['name']
         );
-
-        // Verstuur confirmation email naar de gebruiker
         if ($success) {
             $this->sendConfirmationEmail($name, $email, $category, $message);
         }
@@ -145,15 +95,6 @@ class MailerService
         return $success;
     }
 
-    /**
-     * Verstuur een confirmation e-mail naar de gebruiker
-     * 
-     * @param string $name Naam van de gebruiker
-     * @param string $email E-mail van de gebruiker
-     * @param string $category Categorie van het bericht
-     * @param string $message Het originele bericht
-     * @return bool True als succesvol verzonden
-     */
     private function sendConfirmationEmail(
         string $name,
         string $email,
@@ -161,7 +102,7 @@ class MailerService
         string $message
     ): bool {
         try {
-            $htmlContent = $this->buildConfirmationEmailHtml($name, $category, $message);
+            $htmlContent = $this->buildConfirmationEmailHtml($name, $email, $category, $message);
             $textContent = $this->buildConfirmationEmailText($name, $category, $message);
 
             return $this->send(
@@ -173,14 +114,10 @@ class MailerService
             );
         } catch (Exception $e) {
             error_log('Confirmation email error: ' . $e->getMessage());
-            // Don't throw, we don't want to fail the main contact form if confirmation fails
             return false;
         }
     }
 
-    /**
-     * Bouwt de HTML content voor een contact e-mail
-     */
     private function buildContactEmailHtml(
         string $name,
         string $email,
@@ -242,9 +179,6 @@ class MailerService
         ";
     }
 
-    /**
-     * Bouwt de plain text content voor een contact e-mail
-     */
     private function buildContactEmailText(
         string $name,
         string $email,
@@ -268,9 +202,7 @@ Dit bericht is verzonden via het contact formulier op Vickimmo.be
         ";
     }
 
-    /**
-     * Bouwt de HTML content voor een confirmation e-mail
-     */
+
     private function buildConfirmationEmailHtml(
         string $name,
         string $email,
