@@ -130,12 +130,10 @@ CREATE TABLE IF NOT EXISTS `immo`.`properties` (
         'garage;parking space'
     ) DEFAULT NULL,
   `status` ENUM('for sale', 'for rent','for auction', 'sold', 'rented') NOT NULL,
-  `visibility` ENUM('public', 'private', 'archived') NOT NULL DEFAULT 'public',
-  `auction` TINYINT(1) NULL DEFAULT '0',
+  `visibility` ENUM('public', 'private') NOT NULL DEFAULT 'public',
   `epc_label` ENUM('A+', 'A', 'B', 'C', 'D', 'E', 'F') NULL DEFAULT NULL,
   `epc_value` INT NULL DEFAULT NULL,
   `floors` INT NULL DEFAULT NULL,
-  `availability` TINYINT(1) NULL DEFAULT '1',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -231,31 +229,6 @@ DEFAULT CHARACTER SET = utf8mb4;
 
 
 -- -----------------------------------------------------
--- Table `immo`.`notifications`
--- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `immo`.`notifications` (
-  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `user_id` INT UNSIGNED NOT NULL,
-  `property_id` INT UNSIGNED NOT NULL,
-  `read` TINYINT(1) NOT NULL DEFAULT '0',
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  INDEX `user_id` (`user_id` ASC) VISIBLE,
-  INDEX `property_id` (`property_id` ASC) VISIBLE,
-  CONSTRAINT `notifications_ibfk_1`
-    FOREIGN KEY (`user_id`)
-    REFERENCES `immo`.`users` (`id`)
-    ON DELETE CASCADE,
-  CONSTRAINT `notifications_ibfk_2`
-    FOREIGN KEY (`property_id`)
-    REFERENCES `immo`.`properties` (`id`)
-    ON DELETE CASCADE)
-ENGINE = InnoDB
-DEFAULT CHARACTER SET = utf8mb4;
-
-
--- -----------------------------------------------------
 -- Table `immo`.`properties_features`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `immo`.`properties_features` (
@@ -320,46 +293,6 @@ CREATE TABLE IF NOT EXISTS `immo`.`reviews` (
 ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8mb4;
 
-
--- -----------------------------------------------------
--- Table `immo`.`search_filters`
--- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `immo`.`search_filters` (
-  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `user_id` INT UNSIGNED NULL DEFAULT NULL,
-  `filters` JSON NOT NULL,
-  `name` VARCHAR(100) NULL DEFAULT NULL,
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  INDEX `user_id` (`user_id` ASC) VISIBLE,
-  CONSTRAINT `search_filters_ibfk_1`
-    FOREIGN KEY (`user_id`)
-    REFERENCES `immo`.`users` (`id`)
-    ON DELETE CASCADE)
-ENGINE = InnoDB
-DEFAULT CHARACTER SET = utf8mb4;
-
-
--- -----------------------------------------------------
--- Table `immo`.`view_history`
--- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `immo`.`view_history` (
-  `user_id` INT UNSIGNED NOT NULL,
-  `property_id` INT UNSIGNED NOT NULL,
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`user_id`, `property_id`),
-  INDEX `property_id` (`property_id` ASC) VISIBLE,
-  CONSTRAINT `view_history_ibfk_1`
-    FOREIGN KEY (`user_id`)
-    REFERENCES `immo`.`users` (`id`)
-    ON DELETE CASCADE,
-  CONSTRAINT `view_history_ibfk_2`
-    FOREIGN KEY (`property_id`)
-    REFERENCES `immo`.`properties` (`id`)
-    ON DELETE CASCADE)
-ENGINE = InnoDB
-DEFAULT CHARACTER SET = utf8mb4;
 
 -- -----------------------------------------------------
 -- Table `immo`.`refresh_tokens`

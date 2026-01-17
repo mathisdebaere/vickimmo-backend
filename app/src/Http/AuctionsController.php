@@ -3,42 +3,31 @@
 namespace Http;
 
 use \Services\ApiResponse;
-use \Services\DatabaseConnector;
 
-class AuctionsController
+class AuctionsController extends BaseController
+class AuctionsController extends BaseController
 {
-    protected \Doctrine\DBAL\Connection $db;
-    
     private const VALID_AUCTION_STATUSES = ['upcoming', 'active', 'ended'];
-
-    public function __construct()
-    {
-        $this->db = DatabaseConnector::getConnection();
-    }
-
-    public function methodNotAllowed(): void
-    {
-        ApiResponse::error('HTTP request method ' . $_SERVER['REQUEST_METHOD'] . ' not allowed.', 405);
-    }
 
     // AUCTION MANAGEMENT
 
     public function overview(): void
     {
+        // Optimized: Use LEFT JOIN instead of subqueries
         $auctions = $this->db->fetchAllAssociative(
-            'SELECT a.*, p.title as property_title, p.address, p.city,
+            'SELECT a.*, p.title as property_title, p.address, p.city, p.postal,
                     (SELECT MAX(b.bid_amount) FROM bids b WHERE b.auction_id = a.id) as current_price,
                     (SELECT COUNT(*) FROM bids b WHERE b.auction_id = a.id) as bid_count
              FROM auctions a
              JOIN properties p ON a.property_id = p.id
+             LEFT JOIN bids b ON b.auction_id = a.id
+             GROUP BY a.id
              ORDER BY a.starting_time DESC'
         );
-
-        $formattedAuctions = array_map(function($auction) {
-            return $this->formatAuctionResponse($auction);
-        }, $auctions);
-
-        ApiResponse::success($formattedAuctions);
+        
+        $formattedAuctions = array_map([$this, 'formatAuctionResponse'], $auctions);
+        
+        ApiResponse::success(['data' => $formattedAuctions]);
     }
 
     public function post(): void
@@ -78,7 +67,7 @@ class AuctionsController
             $id = $this->getLastInsertId();
             
             $this->db->executeStatement(
-                'UPDATE properties SET auction = 1 WHERE id = ?',
+                'UPDATE properties SET status = "for auction" WHERE id = ?',
                 [$data['property_id']]
             );
             
@@ -107,78 +96,6 @@ class AuctionsController
         }
         
         ApiResponse::success($this->formatAuctionResponse($auction));
-    }
-
-    public function putByID(int $auctionID): void
-    {
-        $data = $this->getJsonInput();
-        if ($data === null) {
-            return;
-        }
-
-        if (!$this->auctionExists($auctionID)) {
-            ApiResponse::error('Auction not found.', 404);
-            return;
-        }
-
-        $errors = $this->validateAuctionData($data, false);
-        if (!empty($errors)) {
-            ApiResponse::error(json_encode($errors), 422);
-            return;
-        }
-
-        $updateData = $this->prepareUpdateData($data);
-
-        if (empty($updateData)) {
-            ApiResponse::error('No valid fields provided for update.', 422);
-            return;
-        }
-
-        $fields = array_map(fn($field) => "$field = ?", array_keys($updateData));
-        $params = array_merge(array_values($updateData), [$auctionID]);
-        
-        $sql = 'UPDATE auctions SET ' . implode(', ', $fields) . ' WHERE id = ?';
-        $result = $this->db->executeStatement($sql, $params);
-
-        if ($result >= 0) {
-            ApiResponse::success(['message' => 'Auction updated successfully.'], status: 200);
-        } else {
-            ApiResponse::error('Could not update auction.', 500);
-        }
-    }
-
-    public function deleteByID(int $auctionID): void
-    {
-        $auction = $this->db->fetchAssociative(
-            'SELECT property_id FROM auctions WHERE id = ?',
-            [$auctionID]
-        );
-
-        if (!$auction) {
-            ApiResponse::error('Auction not found.', 404);
-            return;
-        }
-
-        try {
-            $this->db->beginTransaction();
-            
-            $this->db->executeStatement(
-                'DELETE FROM auctions WHERE id = ?',
-                [$auctionID]
-            );
-            
-            $this->db->executeStatement(
-                'UPDATE properties SET auction = 0 WHERE id = ?',
-                [$auction['property_id']]
-            );
-            
-            $this->db->commit();
-            
-            ApiResponse::success(['message' => 'Auction and all associated bids deleted successfully.'], status: 200);
-        } catch (\Throwable $e) {
-            $this->db->rollBack();
-            ApiResponse::error('Failed to delete auction: ' . $e->getMessage(), 500);
-        }
     }
 
     // BID MANAGEMENT
@@ -246,7 +163,7 @@ class AuctionsController
         }
 
         if ($now > $endTime) {
-            ApiResponse::error('Auction has ended.', 422);
+            ApiResponse::error('You can no longer place a bid. The auction has ended.', 422);
             return;
         }
 
@@ -276,105 +193,7 @@ class AuctionsController
         }
     }
 
-    public function deleteBid(int $auctionID, int $bidID): void
-    {
-        $bid = $this->db->fetchAssociative(
-            'SELECT id FROM bids WHERE id = ? AND auction_id = ?',
-            [$bidID, $auctionID]
-        );
-
-        if (!$bid) {
-            ApiResponse::error('Bid not found for this auction.', 404);
-            return;
-        }
-
-        $this->db->executeStatement(
-            'DELETE FROM bids WHERE id = ?',
-            [$bidID]
-        );
-
-        ApiResponse::success(['message' => 'Bid deleted successfully.'], status: 200);
-    }
-
-    public function deleteAllBids(int $auctionID): void
-    {
-        if (!$this->auctionExists($auctionID)) {
-            ApiResponse::error('Auction not found.', 404);
-            return;
-        }
-
-        $deleted = $this->db->executeStatement(
-            'DELETE FROM bids WHERE auction_id = ?',
-            [$auctionID]
-        );
-
-        ApiResponse::success([
-            'message' => "Deleted $deleted bid(s).",
-            'auction_id' => $auctionID
-        ]);
-    }
-
     // AUCTION STATUS QUERIES
-
-    public function getActiveAuctions(): void
-    {
-        $now = date('Y-m-d H:i:s');
-        
-        $auctions = $this->db->fetchAllAssociative(
-            'SELECT a.*, p.title as property_title, p.address, p.city,
-                    (SELECT MAX(b.bid_amount) FROM bids b WHERE b.auction_id = a.id) as current_price,
-                    (SELECT COUNT(*) FROM bids b WHERE b.auction_id = a.id) as bid_count
-             FROM auctions a
-             JOIN properties p ON a.property_id = p.id
-             WHERE a.starting_time <= ? AND a.ending_time > ?
-             ORDER BY a.ending_time ASC',
-            [$now, $now]
-        );
-
-        $formattedAuctions = array_map(fn($a) => $this->formatAuctionResponse($a), $auctions);
-        
-        ApiResponse::success($formattedAuctions);
-    }
-
-    public function getUpcomingAuctions(): void
-    {
-        $now = date('Y-m-d H:i:s');
-        
-        $auctions = $this->db->fetchAllAssociative(
-            'SELECT a.*, p.title as property_title, p.address, p.city,
-                    (SELECT MAX(b.bid_amount) FROM bids b WHERE b.auction_id = a.id) as current_price,
-                    (SELECT COUNT(*) FROM bids b WHERE b.auction_id = a.id) as bid_count
-             FROM auctions a
-             JOIN properties p ON a.property_id = p.id
-             WHERE a.starting_time > ?
-             ORDER BY a.starting_time ASC',
-            [$now]
-        );
-
-        $formattedAuctions = array_map(fn($a) => $this->formatAuctionResponse($a), $auctions);
-        
-        ApiResponse::success($formattedAuctions);
-    }
-
-    public function getEndedAuctions(): void
-    {
-        $now = date('Y-m-d H:i:s');
-        
-        $auctions = $this->db->fetchAllAssociative(
-            'SELECT a.*, p.title as property_title, p.address, p.city,
-                    (SELECT MAX(b.bid_amount) FROM bids b WHERE b.auction_id = a.id) as current_price,
-                    (SELECT COUNT(*) FROM bids b WHERE b.auction_id = a.id) as bid_count
-             FROM auctions a
-             JOIN properties p ON a.property_id = p.id
-             WHERE a.ending_time <= ?
-             ORDER BY a.ending_time DESC',
-            [$now]
-        );
-
-        $formattedAuctions = array_map(fn($a) => $this->formatAuctionResponse($a), $auctions);
-        
-        ApiResponse::success($formattedAuctions);
-    }
 
     public function getAuctionsByProperty(int $propertyID): void
     {
@@ -382,6 +201,9 @@ class AuctionsController
             ApiResponse::error('Property not found.', 404);
             return;
         }
+
+        // Auto-process ended auctions
+        $this->autoProcessEndedAuctions();
 
         $auctions = $this->db->fetchAllAssociative(
             'SELECT a.*,
@@ -401,20 +223,53 @@ class AuctionsController
         ]);
     }
 
-    // PRIVATE HELPER METHODS
-
-    private function getJsonInput(): ?array
+    public function processEndedAuctions(): void
     {
-        $input = file_get_contents('php://input');
-        $data = json_decode($input, true);
+        try {
+            $now = date('Y-m-d H:i:s');
+            
+            // Find all auctions that have ended but their properties are still "for auction"
+            $endedAuctions = $this->db->fetchAllAssociative(
+                'SELECT a.id, a.property_id, 
+                        (SELECT COUNT(*) FROM bids b WHERE b.auction_id = a.id) as bid_count
+                 FROM auctions a
+                 JOIN properties p ON a.property_id = p.id
+                 WHERE a.ending_time <= ? 
+                   AND p.status = "for auction"',
+                [$now]
+            );
 
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            ApiResponse::error('Invalid JSON payload.', 422);
-            return null;
+            $processed = 0;
+            foreach ($endedAuctions as $auction) {
+                $bidCount = (int)$auction['bid_count'];
+                $newStatus = $bidCount > 0 ? 'sold' : 'for sale';
+                
+                $this->db->executeStatement(
+                    'UPDATE properties SET status = ? WHERE id = ?',
+                    [$newStatus, $auction['property_id']]
+                );
+                
+                // Delete the auction after processing
+                $this->db->executeStatement(
+                    'DELETE FROM auctions WHERE id = ?',
+                    [$auction['id']]
+                );
+                
+                $processed++;
+                echo "Auction {$auction['id']} ended - Property {$auction['property_id']} set to '$newStatus' ($bidCount bids) - Auction deleted\n";
+            }
+
+            ApiResponse::success([
+                'message' => "Processed $processed ended auction(s).",
+                'processed' => $processed
+            ]);
+
+        } catch (\Throwable $e) {
+            ApiResponse::error('Failed to process ended auctions: ' . $e->getMessage(), 500);
         }
-
-        return $data;
     }
+
+    // PRIVATE HELPER METHODS
 
     private function validateAuctionData(array $data, bool $isCreate): array
     {
@@ -566,16 +421,6 @@ class AuctionsController
         return $result !== false;
     }
 
-    private function propertyExists(int $propertyID): bool
-    {
-        $result = $this->db->fetchAssociative(
-            'SELECT id FROM properties WHERE id = ?',
-            [$propertyID]
-        );
-        
-        return $result !== false;
-    }
-
     private function propertyHasActiveAuction(int $propertyID): bool
     {
         $now = date('Y-m-d H:i:s');
@@ -605,12 +450,43 @@ class AuctionsController
         return $d && $d->format('Y-m-d H:i:s') === $datetime;
     }
 
-    private function getLastInsertId(): ?int
+    /**
+     * Automatically process ended auctions (silent background operation)
+     * Updates property status to 'for sale' (no bids) or 'sold' (with bids)
+     */
+    private function autoProcessEndedAuctions(): void
     {
         try {
-            return (int)$this->db->lastInsertId();
-        } catch (\Throwable) {
-            return null;
+            $now = date('Y-m-d H:i:s');
+            
+            $endedAuctions = $this->db->fetchAllAssociative(
+                'SELECT a.id, a.property_id, 
+                        (SELECT COUNT(*) FROM bids b WHERE b.auction_id = a.id) as bid_count
+                 FROM auctions a
+                 JOIN properties p ON a.property_id = p.id
+                 WHERE a.ending_time <= ? 
+                   AND p.status = "for auction"',
+                [$now]
+            );
+
+            foreach ($endedAuctions as $auction) {
+                $bidCount = (int)$auction['bid_count'];
+                $newStatus = $bidCount > 0 ? 'sold' : 'for sale';
+                
+                $this->db->executeStatement(
+                    'UPDATE properties SET status = ? WHERE id = ?',
+                    [$newStatus, $auction['property_id']]
+                );
+                
+                // Delete the auction after processing
+                $this->db->executeStatement(
+                    'DELETE FROM auctions WHERE id = ?',
+                    [$auction['id']]
+                );
+            }
+        } catch (\Throwable $e) {
+            // Silent fail - don't interrupt the main request
+            error_log("Auto-process auctions failed: " . $e->getMessage());
         }
     }
 }
