@@ -6,6 +6,7 @@ use \Services\ApiResponse;
 use \Services\JWTService;
 
 class PropertiesController extends BaseController
+class PropertiesController extends BaseController
 {
     private const UPLOAD_DIR = __DIR__ . '/../../public/uploads/properties/';
     private const MAX_UPLOAD_SIZE = 20971520; // 20MB
@@ -108,20 +109,24 @@ class PropertiesController extends BaseController
 
         if (!empty($_GET['title'])) {
             $conditions[] = 'p.title LIKE ?';
+            $conditions[] = 'p.title LIKE ?';
             $params[] = '%' . trim($_GET['title']) . '%';
         }
 
         if (!empty($_GET['city'])) {
+            $conditions[] = 'p.city = ?';
             $conditions[] = 'p.city = ?';
             $params[] = trim($_GET['city']);
         }
 
         if (!empty($_GET['postal'])) {
             $conditions[] = 'p.postal = ?';
+            $conditions[] = 'p.postal = ?';
             $params[] = trim($_GET['postal']);
         }
 
         if (!empty($_GET['address'])) {
+            $conditions[] = 'p.address LIKE ?';
             $conditions[] = 'p.address LIKE ?';
             $params[] = '%' . trim($_GET['address']) . '%';
         }
@@ -138,6 +143,7 @@ class PropertiesController extends BaseController
 
             if (!empty($types)) {
                 $conditions[] = 'p.type IN (' . implode(',', array_fill(0, count($types), '?')) . ')';
+                $conditions[] = 'p.type IN (' . implode(',', array_fill(0, count($types), '?')) . ')';
                 array_push($params, ...$types);
             }
         }
@@ -150,6 +156,7 @@ class PropertiesController extends BaseController
 
             if (!empty($statuses)) {
                 $conditions[] = 'p.status IN (' . implode(',', array_fill(0, count($statuses), '?')) . ')';
+                $conditions[] = 'p.status IN (' . implode(',', array_fill(0, count($statuses), '?')) . ')';
                 array_push($params, ...$statuses);
             }
         }
@@ -161,20 +168,24 @@ class PropertiesController extends BaseController
 
         if (isset($_GET['bedrooms']) && is_numeric($_GET['bedrooms'])) {
             $conditions[] = 'p.bedrooms = ?';
+            $conditions[] = 'p.bedrooms = ?';
             $params[] = (int)$_GET['bedrooms'];
         }
 
         if (isset($_GET['bathrooms']) && is_numeric($_GET['bathrooms'])) {
+            $conditions[] = 'p.bathrooms = ?';
             $conditions[] = 'p.bathrooms = ?';
             $params[] = (int)$_GET['bathrooms'];
         }
 
         if (isset($_GET['floors']) && is_numeric($_GET['floors'])) {
             $conditions[] = 'p.floors = ?';
+            $conditions[] = 'p.floors = ?';
             $params[] = (int)$_GET['floors'];
         }
 
         if (isset($_GET['agency_id']) && is_numeric($_GET['agency_id'])) {
+            $conditions[] = 'p.agency_id = ?';
             $conditions[] = 'p.agency_id = ?';
             $params[] = (int)$_GET['agency_id'];
         }
@@ -185,40 +196,48 @@ class PropertiesController extends BaseController
 
         if (isset($_GET['price_min']) && is_numeric($_GET['price_min'])) {
             $conditions[] = 'p.price >= ?';
+            $conditions[] = 'p.price >= ?';
             $params[] = (float)$_GET['price_min'];
         }
 
         if (isset($_GET['price_max']) && is_numeric($_GET['price_max'])) {
+            $conditions[] = 'p.price <= ?';
             $conditions[] = 'p.price <= ?';
             $params[] = (float)$_GET['price_max'];
         }
 
         if (isset($_GET['living_area_min']) && is_numeric($_GET['living_area_min'])) {
             $conditions[] = 'p.living_area >= ?';
+            $conditions[] = 'p.living_area >= ?';
             $params[] = (float)$_GET['living_area_min'];
         }
 
         if (isset($_GET['living_area_max']) && is_numeric($_GET['living_area_max'])) {
+            $conditions[] = 'p.living_area <= ?';
             $conditions[] = 'p.living_area <= ?';
             $params[] = (float)$_GET['living_area_max'];
         }
 
         if (isset($_GET['surface_area_min']) && is_numeric($_GET['surface_area_min'])) {
             $conditions[] = 'p.surface_area >= ?';
+            $conditions[] = 'p.surface_area >= ?';
             $params[] = (float)$_GET['surface_area_min'];
         }
 
         if (isset($_GET['surface_area_max']) && is_numeric($_GET['surface_area_max'])) {
+            $conditions[] = 'p.surface_area <= ?';
             $conditions[] = 'p.surface_area <= ?';
             $params[] = (float)$_GET['surface_area_max'];
         }
 
         if (isset($_GET['build_year_min']) && is_numeric($_GET['build_year_min'])) {
             $conditions[] = 'p.build_year >= ?';
+            $conditions[] = 'p.build_year >= ?';
             $params[] = (int)$_GET['build_year_min'];
         }
 
         if (isset($_GET['build_year_max']) && is_numeric($_GET['build_year_max'])) {
+            $conditions[] = 'p.build_year <= ?';
             $conditions[] = 'p.build_year <= ?';
             $params[] = (int)$_GET['build_year_max'];
         }
@@ -234,10 +253,12 @@ class PropertiesController extends BaseController
             );
 
             $conditions[] = 'p.epc_label IN (' . implode(',', array_fill(0, count($labels), '?')) . ')';
+            $conditions[] = 'p.epc_label IN (' . implode(',', array_fill(0, count($labels), '?')) . ')';
             array_push($params, ...$labels);
         }
 
         if (isset($_GET['epc_value_max']) && is_numeric($_GET['epc_value_max'])) {
+            $conditions[] = 'p.epc_value <= ?';
             $conditions[] = 'p.epc_value <= ?';
             $params[] = (int)$_GET['epc_value_max'];
         }
@@ -293,8 +314,32 @@ $sql = '
 
             if (in_array($_GET['sort'], $allowedSorts, true)) {
                 $sql .= " ORDER BY p.{$_GET['sort']} $direction";
+                $sql .= " ORDER BY p.{$_GET['sort']} $direction";
             }
         }
+
+        /* ─────────────────────────────
+        LIMIT & OFFSET
+        ───────────────────────────── */
+        $limit = null;
+        $offset = null;
+
+        if (isset($_GET['limit']) && is_numeric($_GET['limit'])) {
+            $limit = max(1, min((int)$_GET['limit'], 100));
+        }
+
+        if (isset($_GET['offset']) && is_numeric($_GET['offset'])) {
+            $offset = max(0, (int)$_GET['offset']);
+        }
+
+        if ($limit !== null) {
+            $sql .= " LIMIT $limit";
+            
+            if ($offset !== null) {
+                $sql .= " OFFSET $offset";
+            }
+        }
+    
 
         /* ─────────────────────────────
         LIMIT & OFFSET
@@ -892,6 +937,7 @@ $sql = '
     private function preparePropertyData(array $data): array
     {
         
+        
         return [
             'title' => trim((string)$data['title']),
             'description' => trim((string)$data['description']),
@@ -974,6 +1020,7 @@ $sql = '
 
     private function featureExistsById(int $featureID): bool
     {
+        return $this->entityExists('features', $featureID);
         return $this->entityExists('features', $featureID);
     }
 
@@ -1101,6 +1148,10 @@ $sql = '
 
         foreach ($images as $img) {
             $filePath = self::UPLOAD_DIR . $img['image_path'];
+            
+            if (file_exists($filePath) && !@unlink($filePath)) {
+                $errors[] = "Failed to delete file: {$img['image_path']}";
+                continue;
             
             if (file_exists($filePath) && !@unlink($filePath)) {
                 $errors[] = "Failed to delete file: {$img['image_path']}";

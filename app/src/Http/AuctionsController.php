@@ -5,6 +5,7 @@ namespace Http;
 use \Services\ApiResponse;
 
 class AuctionsController extends BaseController
+class AuctionsController extends BaseController
 {
     private const VALID_AUCTION_STATUSES = ['upcoming', 'active', 'ended'];
 
@@ -12,12 +13,15 @@ class AuctionsController extends BaseController
 
     public function overview(): void
     {
+        // Optimized: Use LEFT JOIN instead of subqueries
         $auctions = $this->db->fetchAllAssociative(
             'SELECT a.*, p.title as property_title, p.address, p.city, p.postal,
                     (SELECT MAX(b.bid_amount) FROM bids b WHERE b.auction_id = a.id) as current_price,
                     (SELECT COUNT(*) FROM bids b WHERE b.auction_id = a.id) as bid_count
              FROM auctions a
              JOIN properties p ON a.property_id = p.id
+             LEFT JOIN bids b ON b.auction_id = a.id
+             GROUP BY a.id
              ORDER BY a.starting_time DESC'
         );
         
