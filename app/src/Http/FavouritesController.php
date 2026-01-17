@@ -3,17 +3,10 @@
 namespace Http;
 
 use \Services\ApiResponse;
-use \Services\DatabaseConnector;
+use Services\JWTService;
 
-class FavouritesController
+class FavouritesController extends BaseController
 {
-    protected \Doctrine\DBAL\Connection $db;
-
-    public function __construct()
-    {
-        $this->db = DatabaseConnector::getConnection();
-    }
-
     public function methodNotAllowed(): void
     {
         ApiResponse::error('HTTP request method ' . $_SERVER['REQUEST_METHOD'] . ' not allowed.', 405);
@@ -42,7 +35,8 @@ class FavouritesController
                     (SELECT pi.image_path 
                      FROM property_images pi 
                      WHERE pi.property_id = p.id AND pi.is_main = 1 
-                     LIMIT 1) AS main_image_path
+                     LIMIT 1) AS main_image_path,
+                    1 AS favorited
             FROM favourites f
             INNER JOIN properties p ON p.id = f.property_id
             LEFT JOIN agencies a ON a.id = p.agency_id
@@ -147,52 +141,7 @@ class FavouritesController
         ]);
     }
 
-    // Delete all favourites for a user
-    public function deleteAll(int $userID): void
-    {
-        if (!$this->userExists($userID)) {
-            ApiResponse::error('User not found.', 404);
-            return;
-        }
-
-        $count = (int)$this->db->fetchOne(
-            'SELECT COUNT(*) FROM favourites WHERE user_id = ?',
-            [$userID]
-        );
-
-        $this->db->executeStatement(
-            'DELETE FROM favourites WHERE user_id = ?',
-            [$userID]
-        );
-
-        ApiResponse::success([
-            'message' => "Deleted {$count} favourite(s) successfully.",
-            'user_id' => $userID,
-            'deleted_count' => $count
-        ]);
-    }
-
     // PRIVATE HELPER METHODS
-
-    private function entityExists(string $table, int $id): bool
-    {
-        $result = $this->db->fetchAssociative(
-            'SELECT id FROM ' . $table . ' WHERE id = ?',
-            [$id]
-        );
-        
-        return $result !== false;
-    }
-
-    private function userExists(int $userID): bool
-    {
-        return $this->entityExists('users', $userID);
-    }
-
-    private function propertyExists(int $propertyID): bool
-    {
-        return $this->entityExists('properties', $propertyID);
-    }
 
     private function favouriteExists(
         int $userID, 
@@ -207,8 +156,56 @@ class FavouritesController
         return $result !== false;
     }
 
-    private function getLastInsertId(): int
+     private function getCurrentUser(): ?array
     {
-        return (int)$this->db->lastInsertId();
+        $token = $this->getBearerToken();
+        if (!$token) {
+            return null;
+        }
+
+        try {
+            $secretKey = $_ENV['JWT_SECRET_KEY'] ?? null;
+            if (!$secretKey) {
+                return null;
+            }
+            
+            $decoded = JWTService::validateJWTToken($token, $secretKey);
+            
+            $user = $this->db->fetchAssociative(
+                'SELECT id, role FROM users WHERE id = ?',
+                [(int)$decoded->sub]
+            );
+
+            if ($user === false) {
+                return null;
+            }
+
+            return [
+                'id' => (int)$user['id'],
+                'role' => $user['role']
+            ];
+        } catch (\Exception $e) {
+            return null;
+        }
     }
+
+    private function getBearerToken(): ?string
+    {
+        $headers = getallheaders();
+        
+        if (isset($headers['Authorization'])) {
+            $authHeader = $headers['Authorization'];
+        } elseif (isset($headers['authorization'])) {
+            $authHeader = $headers['authorization'];
+        } else {
+            return null;
+        }
+
+        if (preg_match('/Bearer\s+(\S+)/', $authHeader, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
+    }
+
 }

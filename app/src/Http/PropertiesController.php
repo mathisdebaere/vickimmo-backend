@@ -246,15 +246,32 @@ class PropertiesController extends BaseController
         BASE QUERY 
         ───────────────────────────── */
 
-        $sql = 'SELECT p.*, 
-                    a.name AS agency_name,
-                    a.logo as agency_logo,
-                    (SELECT pi.image_path 
-                     FROM property_images pi 
-                     WHERE pi.property_id = p.id AND pi.is_main = 1 
-                     LIMIT 1) AS main_image_path
-                FROM properties p
-                LEFT JOIN agencies a ON a.id = p.agency_id';
+        $userId = $currentUser['id'] ?? null;
+
+$sql = '
+    SELECT 
+        p.*,
+        a.name AS agency_name,
+        a.logo AS agency_logo,
+        (
+            SELECT pi.image_path
+            FROM property_images pi
+            WHERE pi.property_id = p.id AND pi.is_main = 1
+            LIMIT 1
+        ) AS main_image_path,
+        ' . ($userId ? '
+        CASE 
+            WHEN f.user_id IS NULL THEN 0 
+            ELSE 1 
+        END
+        ' : '0') . ' AS favorited
+    FROM properties p
+    LEFT JOIN agencies a ON a.id = p.agency_id
+    ' . ($userId ? '
+    LEFT JOIN favourites f 
+        ON f.property_id = p.id 
+        AND f.user_id = ' . (int)$userId : '');
+
 
         if (!empty($conditions)) {
             $sql .= ' WHERE ' . implode(' AND ', $conditions);
@@ -375,6 +392,8 @@ class PropertiesController extends BaseController
 
     public function getPropertiesByAgency(int $agencyID): void
     {
+        $userId = $this->getCurrentUser()['id'];
+
         $properties = $this->db->fetchAllAssociative(
             'SELECT p.*, 
                     a.name AS agency_name, 
@@ -382,8 +401,16 @@ class PropertiesController extends BaseController
                     (SELECT pi.image_path 
                      FROM property_images pi 
                      WHERE pi.property_id = p.id AND pi.is_main = 1 
-                     LIMIT 1) AS image_path
-            FROM properties p 
+                     LIMIT 1) AS image_path, '
+                    . ($userId ? '
+                    CASE 
+                        WHEN f.user_id IS NULL THEN 0 
+                        ELSE 1 
+                    END' : '0') . ' AS favorited
+            FROM properties p
+            LEFT JOIN favourites f 
+                ON f.property_id = p.id 
+                AND f.user_id = ' . 1 . '
             INNER JOIN agencies a ON a.id = p.agency_id 
             WHERE p.agency_id = ? 
             ORDER BY p.created_at DESC',
@@ -489,6 +516,59 @@ class PropertiesController extends BaseController
             ], status: 200);
         } catch (\Throwable $e) {
             ApiResponse::error('Failed to update visibility: ' . $e->getMessage(), 500);
+        }
+    }
+
+    public function deleteByID(int $propertyID): void
+    {
+        if (!$this->propertyExists($propertyID)) {
+            ApiResponse::error('Property not found', 404);
+            return;
+        }
+
+        try {
+            // Delete all associated images first
+            $this->deleteAllImagesInternal($propertyID);
+
+            // Delete property features
+            $this->db->executeStatement(
+                'DELETE FROM property_features WHERE property_id = ?',
+                [$propertyID]
+            );
+
+            // Delete favourites
+            $this->db->executeStatement(
+                'DELETE FROM favourites WHERE property_id = ?',
+                [$propertyID]
+            );
+
+            // Delete auctions and bids
+            $auctions = $this->db->fetchAllAssociative(
+                'SELECT id FROM auctions WHERE property_id = ?',
+                [$propertyID]
+            );
+
+            foreach ($auctions as $auction) {
+                $this->db->executeStatement(
+                    'DELETE FROM bids WHERE auction_id = ?',
+                    [$auction['id']]
+                );
+            }
+
+            $this->db->executeStatement(
+                'DELETE FROM auctions WHERE property_id = ?',
+                [$propertyID]
+            );
+
+            // Finally delete the property itself
+            $this->db->executeStatement(
+                'DELETE FROM properties WHERE id = ?',
+                [$propertyID]
+            );
+
+            ApiResponse::success(['message' => 'Property and all associated data deleted successfully.'], status: 200);
+        } catch (\Throwable $e) {
+            ApiResponse::error('Failed to delete property: ' . $e->getMessage(), 500);
         }
     }
 
@@ -718,6 +798,25 @@ class PropertiesController extends BaseController
         ]);
     }
 
+    public function deleteAllFeaturesFromProperty(int $propertyID): void
+    {
+        if (!$this->propertyExists($propertyID)) {
+            ApiResponse::error('Property not found.', 404);
+            return;
+        }
+
+        $result = $this->db->executeStatement(
+            'DELETE FROM properties_features WHERE property_id = ?',
+            [$propertyID]
+        );
+
+        ApiResponse::success([
+            'message' => 'All features removed from property successfully.',
+            'property_id' => $propertyID,
+            'deleted_count' => $result
+        ]);
+    }
+
     // PRIVATE HELPER METHODS
 
     private function validatePropertyData(array $data, bool $isCreate): array
@@ -863,11 +962,6 @@ class PropertiesController extends BaseController
         return $updateData;
     }
 
-    private function propertyExists(int $propertyID): bool
-    {
-        return $this->entityExists('properties', $propertyID);
-    }
-
     private function featureExists(string $name): bool
     {
         $result = $this->db->fetchAssociative(
@@ -891,11 +985,6 @@ class PropertiesController extends BaseController
         );
         
         return $result !== false;
-    }
-
-    private function getLastInsertId(): int
-    {
-        return (int)$this->db->lastInsertId();
     }
 
     private function normalizeFilesArray(array $files): array
