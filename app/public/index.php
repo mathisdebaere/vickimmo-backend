@@ -144,6 +144,16 @@ $router->mount('/api', function() use ($router) {
     $router->get('/agencies/(\d+)/properties', 'PropertiesController@getPropertiesByAgency');
 });
 
+// Contact routes
+$router->mount('/api', function() use ($router) {
+    header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
+    header('Access-Control-Allow-Methods: POST, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type');
+    header('Access-Control-Allow-Credentials: true');
+
+    $router->post('/contact', 'ContactController@sendContactForm');
+});
+
 // Employees routes
 $router->mount('/api', function() use ($router) {
     // CORS: API response can be shared with javascript code from origin ALLOW_ORIGIN
