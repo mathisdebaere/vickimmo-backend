@@ -39,9 +39,10 @@ $router->mount('/api', function() use ($router) {
     $router->get('/properties/(\d+)/features', 'PropertiesController@propertyFeaturesOverview');
     $router->post('/properties/(\d+)/features/(\d+)', 'PropertiesController@postFeatureToProperty');
     $router->delete('/properties/(\d+)/features/(\d+)', 'PropertiesController@deleteFeatureFromProperty');
+    $router->delete('/properties/(\d+)/features', 'PropertiesController@deleteAllFeaturesFromProperty');
 });
 
-// Favourites routes
+// favourites routes
 $router->mount('/api', function() use ($router) {
     header('Access-Control-Allow-Origin: ' . $_ENV['ALLOW_ORIGIN']);
     header('Access-Control-Allow-Credentials: true');
@@ -60,6 +61,7 @@ $router->mount('/api', function() use ($router) {
     header('Access-Control-Allow-Credentials: true');
 
     // Auctions
+    $router->get('/auctions', 'AuctionsController@overview');
     $router->post('/auctions', 'AuctionsController@post');
     $router->get('/auctions/(\d+)', 'AuctionsController@getByID');
 

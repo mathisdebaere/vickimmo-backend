@@ -798,6 +798,25 @@ $sql = '
         ]);
     }
 
+    public function deleteAllFeaturesFromProperty(int $propertyID): void
+    {
+        if (!$this->propertyExists($propertyID)) {
+            ApiResponse::error('Property not found.', 404);
+            return;
+        }
+
+        $result = $this->db->executeStatement(
+            'DELETE FROM properties_features WHERE property_id = ?',
+            [$propertyID]
+        );
+
+        ApiResponse::success([
+            'message' => 'All features removed from property successfully.',
+            'property_id' => $propertyID,
+            'deleted_count' => $result
+        ]);
+    }
+
     // PRIVATE HELPER METHODS
 
     private function validatePropertyData(array $data, bool $isCreate): array

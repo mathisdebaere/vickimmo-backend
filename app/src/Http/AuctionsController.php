@@ -10,6 +10,22 @@ class AuctionsController extends BaseController
 
     // AUCTION MANAGEMENT
 
+    public function overview(): void
+    {
+        $auctions = $this->db->fetchAllAssociative(
+            'SELECT a.*, p.title as property_title, p.address, p.city, p.postal,
+                    (SELECT MAX(b.bid_amount) FROM bids b WHERE b.auction_id = a.id) as current_price,
+                    (SELECT COUNT(*) FROM bids b WHERE b.auction_id = a.id) as bid_count
+             FROM auctions a
+             JOIN properties p ON a.property_id = p.id
+             ORDER BY a.starting_time DESC'
+        );
+        
+        $formattedAuctions = array_map([$this, 'formatAuctionResponse'], $auctions);
+        
+        ApiResponse::success(['data' => $formattedAuctions]);
+    }
+
     public function post(): void
     {
         $data = $this->getJsonInput();

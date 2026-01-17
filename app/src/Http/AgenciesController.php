@@ -757,7 +757,7 @@ class AgenciesController extends BaseController
             );
 
             // Get favourites per day for the last 7 days
-            $weeklyFavourites = $this->db->fetchAllAssociative(
+            $weeklyfavourites = $this->db->fetchAllAssociative(
                 'SELECT 
                     DATE(f.created_at) as date,
                     COUNT(*) as count
@@ -775,7 +775,7 @@ class AgenciesController extends BaseController
             for ($i = 6; $i >= 0; $i--) {
                 $date = date('Y-m-d', strtotime("-$i days"));
                 $found = false;
-                foreach ($weeklyFavourites as $fav) {
+                foreach ($weeklyfavourites as $fav) {
                     if ($fav['date'] === $date) {
                         $weeklyData[] = [
                             'date' => $date,

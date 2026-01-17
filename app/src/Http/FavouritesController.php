@@ -20,8 +20,6 @@ class FavouritesController extends BaseController
             return;
         }
 
-        $userId = $this->getCurrentUser();
-
         $favourites = $this->db->fetchAllAssociative(
             'SELECT f.id, f.created_at,
                     p.id AS property_id, 
@@ -37,12 +35,8 @@ class FavouritesController extends BaseController
                     (SELECT pi.image_path 
                      FROM property_images pi 
                      WHERE pi.property_id = p.id AND pi.is_main = 1 
-                     LIMIT 1) AS main_image_path, '
-                     . ($userId ? '
-                    CASE 
-                        WHEN f.user_id IS NULL THEN 0 
-                        ELSE 1 
-                    END' : '0') . ' AS favorited
+                     LIMIT 1) AS main_image_path,
+                    1 AS favorited
             FROM favourites f
             INNER JOIN properties p ON p.id = f.property_id
             LEFT JOIN agencies a ON a.id = p.agency_id
