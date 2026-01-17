@@ -4,7 +4,8 @@
         "doctrine/dbal": "^4.4",
         "bramus/router": "^1.6.1",
         "firebase/php-jwt": "^7.0",
-        "cboden/ratchet": "^0.4.4"
+        "cboden/ratchet": "^0.4.4",
+        "symfony/mailer": "^8.0"
     },
     "autoload": {
         "classmap": ["src/"]

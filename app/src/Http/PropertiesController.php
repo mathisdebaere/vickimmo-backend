@@ -246,15 +246,32 @@ class PropertiesController extends BaseController
         BASE QUERY 
         ───────────────────────────── */
 
-        $sql = 'SELECT p.*, 
-                    a.name AS agency_name,
-                    a.logo as agency_logo,
-                    (SELECT pi.image_path 
-                     FROM property_images pi 
-                     WHERE pi.property_id = p.id AND pi.is_main = 1 
-                     LIMIT 1) AS main_image_path
-                FROM properties p
-                LEFT JOIN agencies a ON a.id = p.agency_id';
+        $userId = $currentUser['id'] ?? null;
+
+$sql = '
+    SELECT 
+        p.*,
+        a.name AS agency_name,
+        a.logo AS agency_logo,
+        (
+            SELECT pi.image_path
+            FROM property_images pi
+            WHERE pi.property_id = p.id AND pi.is_main = 1
+            LIMIT 1
+        ) AS main_image_path,
+        ' . ($userId ? '
+        CASE 
+            WHEN f.user_id IS NULL THEN 0 
+            ELSE 1 
+        END
+        ' : '0') . ' AS favorited
+    FROM properties p
+    LEFT JOIN agencies a ON a.id = p.agency_id
+    ' . ($userId ? '
+    LEFT JOIN favourites f 
+        ON f.property_id = p.id 
+        AND f.user_id = ' . (int)$userId : '');
+
 
         if (!empty($conditions)) {
             $sql .= ' WHERE ' . implode(' AND ', $conditions);
@@ -375,6 +392,8 @@ class PropertiesController extends BaseController
 
     public function getPropertiesByAgency(int $agencyID): void
     {
+        $userId = $this->getCurrentUser()['id'];
+
         $properties = $this->db->fetchAllAssociative(
             'SELECT p.*, 
                     a.name AS agency_name, 
@@ -382,8 +401,16 @@ class PropertiesController extends BaseController
                     (SELECT pi.image_path 
                      FROM property_images pi 
                      WHERE pi.property_id = p.id AND pi.is_main = 1 
-                     LIMIT 1) AS image_path
-            FROM properties p 
+                     LIMIT 1) AS image_path, '
+                    . ($userId ? '
+                    CASE 
+                        WHEN f.user_id IS NULL THEN 0 
+                        ELSE 1 
+                    END' : '0') . ' AS favorited
+            FROM properties p
+            LEFT JOIN favourites f 
+                ON f.property_id = p.id 
+                AND f.user_id = ' . 1 . '
             INNER JOIN agencies a ON a.id = p.agency_id 
             WHERE p.agency_id = ? 
             ORDER BY p.created_at DESC',
@@ -768,6 +795,25 @@ class PropertiesController extends BaseController
             'message' => 'Feature removed from property successfully.',
             'property_id' => $propertyID,
             'feature_id' => $featureID
+        ]);
+    }
+
+    public function deleteAllFeaturesFromProperty(int $propertyID): void
+    {
+        if (!$this->propertyExists($propertyID)) {
+            ApiResponse::error('Property not found.', 404);
+            return;
+        }
+
+        $result = $this->db->executeStatement(
+            'DELETE FROM properties_features WHERE property_id = ?',
+            [$propertyID]
+        );
+
+        ApiResponse::success([
+            'message' => 'All features removed from property successfully.',
+            'property_id' => $propertyID,
+            'deleted_count' => $result
         ]);
     }
 

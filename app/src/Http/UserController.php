@@ -10,7 +10,7 @@ class UsersController extends BaseController
     {
         $userRows = $this->db->fetchAllAssociative(
             'SELECT u.id, u.name, u.email, u.phone, u.role, u.created_at, u.updated_at,
-                    GROUP_CONCAT(ae.agency_id) as agency_ids
+                    GROUP_CONCAT(ae.agency_id) as agency_id
              FROM users u
              LEFT JOIN agencies_employees ae ON u.id = ae.user_id
              GROUP BY u.id',
@@ -19,7 +19,7 @@ class UsersController extends BaseController
         
         // Convert agency_ids to array
         $userRows = array_map(function($user) {
-            $user['agency_ids'] = $user['agency_ids'] ? array_map('intval', explode(',', $user['agency_ids'])) : [];
+            $user['agency_id'] = $user['agency_id'] ? array_map('intval', explode(',', $user['agency_id'])) : [];
             return $user;
         }, $userRows);
         
@@ -83,7 +83,7 @@ class UsersController extends BaseController
     {
         $user = $this->db->fetchAssociative(
             'SELECT u.id, u.name, u.email, u.phone, u.role, u.created_at, u.updated_at,
-                    GROUP_CONCAT(ae.agency_id) as agency_ids
+                    GROUP_CONCAT(ae.agency_id) as agency_id
              FROM users u
              LEFT JOIN agencies_employees ae ON u.id = ae.user_id
              WHERE u.id = ?
@@ -97,7 +97,7 @@ class UsersController extends BaseController
         }
         
         // Convert agency_ids to array
-        $user['agency_ids'] = $user['agency_ids'] ? array_map('intval', explode(',', $user['agency_ids'])) : [];
+        $user['agency_id'] = $user['agency_id'] ? array_map('intval', explode(',', $user['agency_id'])) : [];
 
         ApiResponse::success($user);
     }
