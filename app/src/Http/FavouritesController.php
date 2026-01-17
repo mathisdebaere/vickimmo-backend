@@ -147,31 +147,6 @@ class FavouritesController extends BaseController
         ]);
     }
 
-    // Delete all favourites for a user
-    public function deleteAll(int $userID): void
-    {
-        if (!$this->userExists($userID)) {
-            ApiResponse::error('User not found.', 404);
-            return;
-        }
-
-        $count = (int)$this->db->fetchOne(
-            'SELECT COUNT(*) FROM favourites WHERE user_id = ?',
-            [$userID]
-        );
-
-        $this->db->executeStatement(
-            'DELETE FROM favourites WHERE user_id = ?',
-            [$userID]
-        );
-
-        ApiResponse::success([
-            'message' => "Deleted {$count} favourite(s) successfully.",
-            'user_id' => $userID,
-            'deleted_count' => $count
-        ]);
-    }
-
     // PRIVATE HELPER METHODS
 
     private function favouriteExists(
