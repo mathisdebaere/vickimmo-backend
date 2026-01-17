@@ -3,6 +3,7 @@
 namespace Http;
 
 use \Services\ApiResponse;
+use \Services\JWTService;
 
 class PropertiesController extends BaseController
 {
@@ -12,12 +13,94 @@ class PropertiesController extends BaseController
     
     private const VALID_TYPES = ['house', 'apartment', 'land', 'garage', 'business'];
     private const VALID_STATUSES = ['for sale', 'for rent', 'for auction', 'sold', 'rented'];
-    private const VALID_VISIBILITIES = ['public', 'private', 'archived'];
+
+    private function getCurrentUser(): ?array
+    {
+        $token = $this->getBearerToken();
+        if (!$token) {
+            return null;
+        }
+
+        try {
+            $secretKey = $_ENV['JWT_SECRET_KEY'] ?? null;
+            if (!$secretKey) {
+                return null;
+            }
+            
+            $decoded = JWTService::validateJWTToken($token, $secretKey);
+            
+            $user = $this->db->fetchAssociative(
+                'SELECT id, role FROM users WHERE id = ?',
+                [(int)$decoded->sub]
+            );
+
+            if ($user === false) {
+                return null;
+            }
+
+            return [
+                'id' => (int)$user['id'],
+                'role' => $user['role']
+            ];
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    private function getUserAgencies(int $userId): array
+    {
+        $agencies = $this->db->fetchAllAssociative(
+            'SELECT agency_id FROM agencies_employees WHERE user_id = ?',
+            [$userId]
+        );
+
+        return array_map(fn($row) => (int)$row['agency_id'], $agencies);
+    }
+
+    private function getBearerToken(): ?string
+    {
+        $headers = getallheaders();
+        
+        if (isset($headers['Authorization'])) {
+            $authHeader = $headers['Authorization'];
+        } elseif (isset($headers['authorization'])) {
+            $authHeader = $headers['authorization'];
+        } else {
+            return null;
+        }
+
+        if (preg_match('/Bearer\s+(\S+)/', $authHeader, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
+    }
 
     public function overview(): void
     {
         $conditions = [];
         $params = [];
+
+        /* ─────────────────────────────
+        VISIBILITY FILTER
+        ───────────────────────────── */
+        $currentUser = $this->getCurrentUser();
+        
+        if ($currentUser === null || $currentUser['role'] === 'client') {
+            $conditions[] = 'p.visibility = ?';
+            $params[] = 'public';
+        } elseif ($currentUser['role'] === 'employee') {
+            $userAgencies = $this->getUserAgencies($currentUser['id']);
+            
+            if (!empty($userAgencies)) {
+                $agencyPlaceholders = implode(',', array_fill(0, count($userAgencies), '?'));
+                $conditions[] = "(p.visibility = 'public' OR (p.visibility = 'private' AND p.agency_id IN ($agencyPlaceholders)))";
+                array_push($params, ...$userAgencies);
+            } else {
+                $conditions[] = 'p.visibility = ?';
+                $params[] = 'public';
+            }
+        }
 
         /* ─────────────────────────────
         TEXT / EXACT MATCH FILTERS
@@ -160,15 +243,35 @@ class PropertiesController extends BaseController
         }
 
         /* ─────────────────────────────
-        BASE QUERY - NOW WITH JOINS
+        BASE QUERY 
         ───────────────────────────── */
 
-        $sql = 'SELECT p.*, 
-                    a.name AS agency_name,
-                    pi.image_path AS main_image_path
-                FROM properties p
-                LEFT JOIN agencies a ON a.id = p.agency_id
-                LEFT JOIN property_images pi ON pi.property_id = p.id AND pi.is_main = 1';
+        $userId = $currentUser['id'] ?? null;
+
+$sql = '
+    SELECT 
+        p.*,
+        a.name AS agency_name,
+        a.logo AS agency_logo,
+        (
+            SELECT pi.image_path
+            FROM property_images pi
+            WHERE pi.property_id = p.id AND pi.is_main = 1
+            LIMIT 1
+        ) AS main_image_path,
+        ' . ($userId ? '
+        CASE 
+            WHEN f.user_id IS NULL THEN 0 
+            ELSE 1 
+        END
+        ' : '0') . ' AS favorited
+    FROM properties p
+    LEFT JOIN agencies a ON a.id = p.agency_id
+    ' . ($userId ? '
+    LEFT JOIN favourites f 
+        ON f.property_id = p.id 
+        AND f.user_id = ' . (int)$userId : '');
+
 
         if (!empty($conditions)) {
             $sql .= ' WHERE ' . implode(' AND ', $conditions);
@@ -233,6 +336,12 @@ class PropertiesController extends BaseController
                 $property['main_image_url'] = null;
             }
             unset($property['main_image_path']); // Remove internal field
+
+            if (!empty($property['agency_logo'])) {
+                $property['agency_logo'] = '/uploads/agencies/' . $property['agency_logo'];
+            } else {
+                $property['agency_logo'] = null;
+            }
         }
 
         // Return with pagination metadata
@@ -267,8 +376,8 @@ class PropertiesController extends BaseController
         $result = $this->db->executeStatement(
             'INSERT INTO properties 
             (title, description, agency_id, address, postal, city, price, build_year, 
-             bedrooms, bathrooms, living_area, surface_area, type, sub_type, status, epc_label, epc_value, floors) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+             bedrooms, bathrooms, living_area, surface_area, type, sub_type, status, visibility, epc_label, epc_value, floors) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             array_values($propertyData)
         );
 
@@ -283,11 +392,25 @@ class PropertiesController extends BaseController
 
     public function getPropertiesByAgency(int $agencyID): void
     {
+        $userId = $this->getCurrentUser()['id'];
+
         $properties = $this->db->fetchAllAssociative(
             'SELECT p.*, 
-                    a.name AS agency_name, pi.image_path 
-            FROM properties p 
-            LEFT JOIN property_images pi ON pi.property_id = p.id AND pi.is_main = 1 
+                    a.name AS agency_name, 
+                    a.logo as agency_logo,
+                    (SELECT pi.image_path 
+                     FROM property_images pi 
+                     WHERE pi.property_id = p.id AND pi.is_main = 1 
+                     LIMIT 1) AS image_path, '
+                    . ($userId ? '
+                    CASE 
+                        WHEN f.user_id IS NULL THEN 0 
+                        ELSE 1 
+                    END' : '0') . ' AS favorited
+            FROM properties p
+            LEFT JOIN favourites f 
+                ON f.property_id = p.id 
+                AND f.user_id = ' . 1 . '
             INNER JOIN agencies a ON a.id = p.agency_id 
             WHERE p.agency_id = ? 
             ORDER BY p.created_at DESC',
@@ -302,6 +425,12 @@ class PropertiesController extends BaseController
             }
 
             unset($property['image_path']);
+
+            if (!empty($property['agency_logo'])) {
+                $property['agency_logo'] = '/uploads/agencies/' . $property['agency_logo'];
+            } else {
+                $property['agency_logo'] = null;
+            }
         }
 
         ApiResponse::success($properties);
@@ -360,7 +489,7 @@ class PropertiesController extends BaseController
         }
     }
 
-    public function deleteByID(int $propertyID): void
+    public function toggleVisibility(int $propertyID): void
     {
         if (!$this->propertyExists($propertyID)) {
             ApiResponse::error('Property not found.', 404);
@@ -368,20 +497,77 @@ class PropertiesController extends BaseController
         }
 
         try {
-            $this->db->beginTransaction();
-            
+            // Get current visibility
+            $property = $this->db->fetchAssociative(
+                'SELECT visibility FROM properties WHERE id = ?',
+                [$propertyID]
+            );
+
+            $newVisibility = $property['visibility'] === 'public' ? 'private' : 'public';
+
+            $this->db->executeStatement(
+                'UPDATE properties SET visibility = ? WHERE id = ?',
+                [$newVisibility, $propertyID]
+            );
+
+            ApiResponse::success([
+                'message' => 'Property visibility updated successfully.',
+                'visibility' => $newVisibility
+            ], status: 200);
+        } catch (\Throwable $e) {
+            ApiResponse::error('Failed to update visibility: ' . $e->getMessage(), 500);
+        }
+    }
+
+    public function deleteByID(int $propertyID): void
+    {
+        if (!$this->propertyExists($propertyID)) {
+            ApiResponse::error('Property not found', 404);
+            return;
+        }
+
+        try {
+            // Delete all associated images first
             $this->deleteAllImagesInternal($propertyID);
-            
+
+            // Delete property features
+            $this->db->executeStatement(
+                'DELETE FROM property_features WHERE property_id = ?',
+                [$propertyID]
+            );
+
+            // Delete favourites
+            $this->db->executeStatement(
+                'DELETE FROM favourites WHERE property_id = ?',
+                [$propertyID]
+            );
+
+            // Delete auctions and bids
+            $auctions = $this->db->fetchAllAssociative(
+                'SELECT id FROM auctions WHERE property_id = ?',
+                [$propertyID]
+            );
+
+            foreach ($auctions as $auction) {
+                $this->db->executeStatement(
+                    'DELETE FROM bids WHERE auction_id = ?',
+                    [$auction['id']]
+                );
+            }
+
+            $this->db->executeStatement(
+                'DELETE FROM auctions WHERE property_id = ?',
+                [$propertyID]
+            );
+
+            // Finally delete the property itself
             $this->db->executeStatement(
                 'DELETE FROM properties WHERE id = ?',
                 [$propertyID]
             );
-            
-            $this->db->commit();
-            
-            ApiResponse::success(['message' => 'Property and all associated images deleted successfully.'], status: 200);
+
+            ApiResponse::success(['message' => 'Property and all associated data deleted successfully.'], status: 200);
         } catch (\Throwable $e) {
-            $this->db->rollBack();
             ApiResponse::error('Failed to delete property: ' . $e->getMessage(), 500);
         }
     }
@@ -612,6 +798,25 @@ class PropertiesController extends BaseController
         ]);
     }
 
+    public function deleteAllFeaturesFromProperty(int $propertyID): void
+    {
+        if (!$this->propertyExists($propertyID)) {
+            ApiResponse::error('Property not found.', 404);
+            return;
+        }
+
+        $result = $this->db->executeStatement(
+            'DELETE FROM properties_features WHERE property_id = ?',
+            [$propertyID]
+        );
+
+        ApiResponse::success([
+            'message' => 'All features removed from property successfully.',
+            'property_id' => $propertyID,
+            'deleted_count' => $result
+        ]);
+    }
+
     // PRIVATE HELPER METHODS
 
     private function validatePropertyData(array $data, bool $isCreate): array
@@ -703,6 +908,7 @@ class PropertiesController extends BaseController
             'type' => strtolower(trim((string)$data['type'])),
             'sub_type' => isset($data['sub_type']) ? trim((string)$data['sub_type']) : null,
             'status' => strtolower(trim((string)$data['status'])),
+            'visibility' => isset($data['visibility']) && in_array($data['visibility'], ['public', 'private'], true) ? $data['visibility'] : 'public',
             'epc_label' => isset($data['epc_label']) ? strtoupper(trim((string)$data['epc_label'])) : null,
             'epc_value' => isset($data['epc_value']) ? (int)$data['epc_value'] : null,
             'floors' => isset($data['floors']) ? (int)$data['floors'] : null,
@@ -714,7 +920,7 @@ class PropertiesController extends BaseController
         $allowedFields = [
             'title', 'description', 'agency_id', 'address', 'postal', 'city', 'price',
             'build_year', 'bedrooms', 'bathrooms', 'living_area', 'surface_area', 'type',
-            'sub_type', 'status', 'epc_label', 'epc_value', 'floors'
+            'sub_type', 'status', 'visibility', 'epc_label', 'epc_value', 'floors'
         ];
 
         $updateData = [];
@@ -736,6 +942,10 @@ class PropertiesController extends BaseController
                 if (!in_array($value, self::VALID_STATUSES, true)) continue;
             }
 
+            if ($field === 'visibility') {
+                if (!in_array($value, ['public', 'private'], true)) continue;
+            }
+
             if (in_array($field, ['price', 'living_area', 'surface_area'])) {
                 $value = (float)$value;
             } elseif (in_array($field, ['agency_id', 'build_year', 'bedrooms', 'bathrooms', 'epc_value', 'floors'])) {
@@ -750,11 +960,6 @@ class PropertiesController extends BaseController
         }
 
         return $updateData;
-    }
-
-    private function propertyExists(int $propertyID): bool
-    {
-        return $this->entityExists('properties', $propertyID);
     }
 
     private function featureExists(string $name): bool
@@ -780,11 +985,6 @@ class PropertiesController extends BaseController
         );
         
         return $result !== false;
-    }
-
-    private function getLastInsertId(): int
-    {
-        return (int)$this->db->lastInsertId();
     }
 
     private function normalizeFilesArray(array $files): array
@@ -814,6 +1014,12 @@ class PropertiesController extends BaseController
         $successCount = 0;
         $errors = [];
 
+        // Get current image count for this property to determine next number
+        $currentCount = (int)$this->db->fetchOne(
+            'SELECT COUNT(*) FROM property_images WHERE property_id = ?',
+            [$propertyID]
+        );
+
         foreach ($files as $file) {
             if ($file['error'] !== UPLOAD_ERR_OK) {
                 $errors[] = "Upload error for {$file['name']} (code: {$file['error']})";
@@ -831,7 +1037,9 @@ class PropertiesController extends BaseController
                 continue;
             }
 
-            $newFileName = uniqid("prop_{$propertyID}_") . '.' . $fileExt;
+            // Use sequential numbering: prop_1_1, prop_1_2, etc.
+            $imageNumber = $currentCount + $successCount + 1;
+            $newFileName = "prop_{$propertyID}_{$imageNumber}." . $fileExt;
             $destination = self::UPLOAD_DIR . $newFileName;
 
             if (!move_uploaded_file($file['tmp_name'], $destination)) {
@@ -839,7 +1047,7 @@ class PropertiesController extends BaseController
                 continue;
             }
 
-            $isMain = ($successCount === 0) ? 1 : 0;
+            $isMain = ($successCount === 0 && $currentCount === 0) ? 1 : 0;
 
             $this->db->executeStatement(
                 'INSERT INTO property_images (property_id, image_path, is_main) VALUES (?, ?, ?)',

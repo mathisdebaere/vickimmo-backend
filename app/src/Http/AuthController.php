@@ -121,12 +121,12 @@ class AuthController extends BaseController
         );
 
         if ($user === false) {
-            ApiResponse::error('Invalid credentials.', 401);
+            ApiResponse::error('Username and / or password are incorrect.', 401);
             return;
         }
 
         if (!password_verify($password, $user['password'])) {
-            ApiResponse::error('Invalid credentials.', 401);
+            ApiResponse::error('Username and / or password are incorrect.', 401);
             return;
         }
 
@@ -440,18 +440,6 @@ class AuthController extends BaseController
         );
     }
 
-    private function getLastInsertId(): int
-    {
-        return (int)$this->db->lastInsertId();
-    }
-
-    private function emailExists(string $email): bool
-    {
-        return (bool)$this->db->fetchOne(
-            'SELECT COUNT(*) FROM users WHERE email = ?',
-            [strtolower(trim($email))]
-        );
-    }
     private function isStrongPassword(string $password): bool 
     {
         return preg_match(

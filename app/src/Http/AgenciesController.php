@@ -40,10 +40,12 @@ class AgenciesController extends BaseController
                 a.created_at,
                 a.updated_at,
                 COUNT(DISTINCT p.id) AS property_count,
+                COUNT(DISTINCT ae.user_id) AS employee_count,
                 COUNT(r.user_id) AS review_count,
                 ROUND(AVG(r.rating), 2) AS avg_rating
             FROM agencies a
             LEFT JOIN properties p ON p.agency_id = a.id
+            LEFT JOIN agencies_employees ae ON ae.agency_id = a.id
             LEFT JOIN reviews r ON r.agency_id = a.id';
 
         if (!empty($conditions)) {
@@ -108,6 +110,7 @@ class AgenciesController extends BaseController
                 
                 // Add the statistics
                 $formatted['property_count'] = (int)$agency['property_count'];
+                $formatted['employee_count'] = (int)$agency['employee_count'];
                 $formatted['review_count'] = (int)$agency['review_count'];
                 $formatted['avg_rating'] = $agency['avg_rating'] !== null
                     ? (float)$agency['avg_rating']
@@ -171,16 +174,24 @@ class AgenciesController extends BaseController
             return;
         }
 
-        // Get average rating and review count
+        // Get average rating, review count, and employee count
         $stats = $this->db->fetchAssociative(
-            'SELECT COUNT(*) as review_count, AVG(rating) as avg_rating 
-            FROM reviews 
-            WHERE agency_id = ?',
+            'SELECT COUNT(DISTINCT r.user_id) as review_count, 
+                    AVG(r.rating) as avg_rating,
+                    COUNT(DISTINCT ae.user_id) as employee_count,
+                    COUNT(DISTINCT p.id) as property_count
+            FROM agencies a
+            LEFT JOIN reviews r ON r.agency_id = a.id
+            LEFT JOIN agencies_employees ae ON ae.agency_id = a.id
+            LEFT JOIN properties p ON p.agency_id = a.id
+            WHERE a.id = ?',
             [$id]
         );
 
         $response = $this->formatAgencyResponse($agency);
         $response['review_count'] = (int)($stats['review_count'] ?? 0);
+        $response['employee_count'] = (int)($stats['employee_count'] ?? 0);
+        $response['property_count'] = (int)($stats['property_count'] ?? 0);
         $response['avg_rating'] = $stats['avg_rating'] ? round((float)$stats['avg_rating'], 2) : null;
 
         ApiResponse::success($response);
@@ -315,8 +326,8 @@ class AgenciesController extends BaseController
             [$id]
         );
 
-        // Generate new filename
-        $newFileName = uniqid("agency_{$id}_logo_") . '.' . $fileExt;
+        // Simple naming: agency_1.png, agency_2.jpg, etc.
+        $newFileName = "agency_{$id}." . $fileExt;
         $destination = self::UPLOAD_DIR . $newFileName;
 
         if (!move_uploaded_file($file['tmp_name'], $destination)) {
@@ -436,7 +447,8 @@ class AgenciesController extends BaseController
         $errors = $this->validateReviewData($data);
         
         if (!empty($errors)) {
-            ApiResponse::error(json_encode($errors), 422);
+            $errorMessage = is_array($errors) ? implode(' ', $errors) : $errors;
+            ApiResponse::error($errorMessage, 422);
             return;
         }
 
@@ -453,7 +465,7 @@ class AgenciesController extends BaseController
 
         // Check if review already exists (composite primary key)
         if ($this->reviewExists($userId, $agencyID)) {
-            ApiResponse::error('User has already reviewed this agency. Use PUT to update.', 409);
+            ApiResponse::error("You've already reviewed this agency.", 409);
             return;
         }
 
@@ -615,14 +627,22 @@ class AgenciesController extends BaseController
 
             // Title is required for POST
             $title = isset($data['title']) ? trim((string)$data['title']) : '';
-            if ($title === '' || mb_strlen($title) < 3) {
-                $errors[] = 'Title must be at least 3 characters.';
+            if ($title === '') {
+                $errors[] = 'Title is required.';
+            } elseif (mb_strlen($title) < 10) {
+                $errors[] = 'Title must be at least 10 characters.';
+            } elseif (mb_strlen($title) > 250) {
+                $errors[] = 'Title must not exceed 250 characters.';
             }
 
             // Content is required for POST
             $content = isset($data['content']) ? trim((string)$data['content']) : '';
-            if ($content === '' || mb_strlen($content) < 10) {
+            if ($content === '') {
+                $errors[] = 'Content is required.';
+            } elseif (mb_strlen($content) < 10) {
                 $errors[] = 'Content must be at least 10 characters.';
+            } elseif (mb_strlen($content) > 250) {
+                $errors[] = 'Content must not exceed 250 characters.';
             }
         } else {
             // For PUT, validate only if provided
@@ -635,8 +655,10 @@ class AgenciesController extends BaseController
 
             if (isset($data['title'])) {
                 $title = trim((string)$data['title']);
-                if (mb_strlen($title) < 3) {
-                    $errors[] = 'Title must be at least 3 characters.';
+                if (mb_strlen($title) < 10) {
+                    $errors[] = 'Title must be at least 10 characters.';
+                } elseif (mb_strlen($title) > 250) {
+                    $errors[] = 'Title must not exceed 250 characters.';
                 }
             }
 
@@ -644,6 +666,8 @@ class AgenciesController extends BaseController
                 $content = trim((string)$data['content']);
                 if (mb_strlen($content) < 10) {
                     $errors[] = 'Content must be at least 10 characters.';
+                } elseif (mb_strlen($content) > 250) {
+                    $errors[] = 'Content must not exceed 250 characters.';
                 }
             }
         }
@@ -651,20 +675,7 @@ class AgenciesController extends BaseController
         return $errors;
     }
 
-    private function agencyExists(int $id): bool
-    {
-        return $this->entityExists('agencies', $id);
-    }
 
-    private function userExists(int $userId): bool
-    {
-        return $this->entityExists('users', $userId);
-    }
-
-    private function getLastInsertId(): int
-    {
-        return (int)$this->db->lastInsertId();
-    }
 
     private function reviewExists(int $userId, int $agencyId): bool
     {
@@ -712,18 +723,93 @@ class AgenciesController extends BaseController
         }
     }
 
-    private function validatePhone(string $phone): bool
+    // ANALYTICS
+
+    public function analyticsOverview(): void
     {
-        return preg_match('/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/', $phone) === 1;
+        // Get agencies with their stats
+        $agencies = $this->db->fetchAllAssociative(
+            'SELECT 
+                a.id,
+                a.name,
+                a.logo,
+                COUNT(DISTINCT p.id) AS property_count,
+                COUNT(DISTINCT r.user_id) AS review_count,
+                ROUND(AVG(r.rating), 2) AS avg_rating
+            FROM agencies a
+            LEFT JOIN properties p ON p.agency_id = a.id
+            LEFT JOIN reviews r ON r.agency_id = a.id
+            GROUP BY a.id'
+        );
+
+        // For each agency, get favourites count and weekly favourites data
+        $analyticsData = [];
+        foreach ($agencies as $agency) {
+            $agencyId = (int)$agency['id'];
+
+            // Get total favourites count for this agency's properties
+            $favouritesResult = $this->db->fetchAssociative(
+                'SELECT COUNT(*) as total_favourites
+                FROM favourites f
+                INNER JOIN properties p ON p.id = f.property_id
+                WHERE p.agency_id = ?',
+                [$agencyId]
+            );
+
+            // Get favourites per day for the last 7 days
+            $weeklyfavourites = $this->db->fetchAllAssociative(
+                'SELECT 
+                    DATE(f.created_at) as date,
+                    COUNT(*) as count
+                FROM favourites f
+                INNER JOIN properties p ON p.id = f.property_id
+                WHERE p.agency_id = ?
+                    AND f.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                GROUP BY DATE(f.created_at)
+                ORDER BY date ASC',
+                [$agencyId]
+            );
+
+            // Format weekly data to include all 7 days (fill missing days with 0)
+            $weeklyData = [];
+            for ($i = 6; $i >= 0; $i--) {
+                $date = date('Y-m-d', strtotime("-$i days"));
+                $found = false;
+                foreach ($weeklyfavourites as $fav) {
+                    if ($fav['date'] === $date) {
+                        $weeklyData[] = [
+                            'date' => $date,
+                            'count' => (int)$fav['count']
+                        ];
+                        $found = true;
+                        break;
+                    }
+                }
+                if (!$found) {
+                    $weeklyData[] = [
+                        'date' => $date,
+                        'count' => 0
+                    ];
+                }
+            }
+
+            $analyticsData[] = [
+                'id' => $agencyId,
+                'name' => $agency['name'],
+                'logo_url' => $agency['logo'] ? '/uploads/agencies/' . $agency['logo'] : null,
+                'property_count' => (int)$agency['property_count'],
+                'review_count' => (int)$agency['review_count'],
+                'avg_rating' => $agency['avg_rating'] ? (float)$agency['avg_rating'] : null,
+                'total_favourites' => (int)($favouritesResult['total_favourites'] ?? 0),
+                'weekly_favourites' => $weeklyData
+            ];
+        }
+
+        ApiResponse::success([
+            'count' => count($analyticsData),
+            'analytics' => $analyticsData
+        ]);
     }
 
-    private function validateUrl(string $url): bool
-    {
-        return filter_var($url, FILTER_VALIDATE_URL) !== false;
-    }
 
-    private function validateEmail(string $email): bool
-    {
-        return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
-    }
 }

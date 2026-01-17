@@ -206,10 +206,58 @@ class AuctionServer implements MessageComponentInterface
             $stmt->execute([$auctionId]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
             
+            if (!$result) {
+                $this->processEndedAuction($auctionId);
+            }
+            
             return $result ?: null;
         } catch (PDOException $e) {
             echo "Error fetching auction: " . $e->getMessage() . "\n";
             return null;
+        }
+    }
+
+    private function processEndedAuction(int $auctionId): void
+    {
+        try {
+            // Get auction and check if it needs processing
+            $stmt = $this->db->prepare(
+                "SELECT a.id, a.property_id, p.status,
+                        (SELECT COUNT(*) FROM bids WHERE auction_id = a.id) as bid_count
+                 FROM auctions a
+                 JOIN properties p ON a.property_id = p.id
+                 WHERE a.id = ? AND a.ending_time <= NOW() AND p.status = 'for auction'"
+            );
+            $stmt->execute([$auctionId]);
+            $auction = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($auction) {
+                $bidCount = (int)$auction['bid_count'];
+                $newStatus = $bidCount > 0 ? 'sold' : 'for sale';
+                
+                $updateStmt = $this->db->prepare(
+                    "UPDATE properties SET status = ? WHERE id = ?"
+                );
+                $updateStmt->execute([$newStatus, $auction['property_id']]);
+                
+                // Delete the auction after processing
+                $deleteStmt = $this->db->prepare(
+                    "DELETE FROM auctions WHERE id = ?"
+                );
+                $deleteStmt->execute([$auctionId]);
+                
+                echo "Auction {$auctionId} ended - Property {$auction['property_id']} set to '$newStatus' ($bidCount bids) - Auction deleted\n";
+                
+                // Broadcast auction ended to all participants
+                $this->broadcastToAuction($auctionId, [
+                    'type' => 'auction_ended',
+                    'auction_id' => $auctionId,
+                    'property_status' => $newStatus,
+                    'has_bids' => $bidCount > 0
+                ]);
+            }
+        } catch (PDOException $e) {
+            echo "Error processing ended auction: " . $e->getMessage() . "\n";
         }
     }
 
