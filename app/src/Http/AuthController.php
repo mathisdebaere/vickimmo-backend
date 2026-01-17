@@ -7,8 +7,6 @@ use \Services\JWTService;
 
 class AuthController extends BaseController
 {
-class AuthController extends BaseController
-{
 
     private function getSecretKey(): string
     {
@@ -83,9 +81,6 @@ class AuthController extends BaseController
                 
                 $this->setRefreshTokenCookie($tokens['refreshToken']);
                 
-                
-                $this->setRefreshTokenCookie($tokens['refreshToken']);
-                
                 ApiResponse::success([
                     'message' => 'User registered successfully.',
                     'user' => [
@@ -139,8 +134,6 @@ class AuthController extends BaseController
 
         $this->setRefreshTokenCookie($tokens['refreshToken']);
 
-        $this->setRefreshTokenCookie($tokens['refreshToken']);
-
         $this->db->executeStatement(
             'UPDATE users SET updated_at = NOW() WHERE id = ?',
             [$user['id']]
@@ -170,27 +163,7 @@ class AuthController extends BaseController
                 $userId = (int)$decoded->sub;
             } catch (\Exception) {
             }
-        $userId = null;
-        if ($token) {
-            try {
-                $decoded = JWTService::validateJWTToken($token, $this->getSecretKey());
-                $userId = (int)$decoded->sub;
-            } catch (\Exception) {
-            }
         }
-        
-        if ($userId === null) {
-            $refreshToken = $_COOKIE['refreshToken'] ?? '';
-            if ($refreshToken !== '') {
-                try {
-                    $decoded = JWTService::validateJWTToken($refreshToken, $this->getRefreshSecretKey());
-                    $userId = (int)$decoded->sub;
-                } catch (\Exception) {
-                }
-            }
-        }
-        
-        if ($userId !== null) {
         
         if ($userId === null) {
             $refreshToken = $_COOKIE['refreshToken'] ?? '';
@@ -211,13 +184,7 @@ class AuthController extends BaseController
         }
 
         $this->clearRefreshTokenCookie();
-        }
 
-        $this->clearRefreshTokenCookie();
-
-        ApiResponse::success([
-            'message' => 'Logout successful.'
-        ]);
         ApiResponse::success([
             'message' => 'Logout successful.'
         ]);
@@ -321,10 +288,8 @@ class AuthController extends BaseController
     public function refreshToken(): void
     {
         $refreshToken = $_COOKIE['refreshToken'] ?? '';
-        $refreshToken = $_COOKIE['refreshToken'] ?? '';
         
         if ($refreshToken === '') {
-            ApiResponse::error('No refresh token provided.', 401);
             ApiResponse::error('No refresh token provided.', 401);
             return;
         }
@@ -340,13 +305,8 @@ class AuthController extends BaseController
             $deleted = $this->db->executeStatement(
                 'DELETE FROM refresh_tokens WHERE token = ?',
                 [$refreshToken]
-            $deleted = $this->db->executeStatement(
-                'DELETE FROM refresh_tokens WHERE token = ?',
-                [$refreshToken]
             );
 
-            if ($deleted === 0) {
-                ApiResponse::error('Invalid or already used refresh token.', 401);
             if ($deleted === 0) {
                 ApiResponse::error('Invalid or already used refresh token.', 401);
                 return;
@@ -373,20 +333,7 @@ class AuthController extends BaseController
                 $this->getRefreshSecretKey(),
                 $this->getRefreshTokenLifetime()
             );
-            $newRefreshToken = JWTService::generateJWTToken(
-                $user,
-                $this->getRefreshSecretKey(),
-                $this->getRefreshTokenLifetime()
-            );
 
-            $this->storeRefreshToken($userId, $newRefreshToken);
-            $this->setRefreshTokenCookie($newRefreshToken);
-
-            ApiResponse::success([
-                'message' => 'Token refreshed successfully.',
-                'accessToken' => $accessToken,
-                'expiresIn' => $this->getAccessTokenLifetime()
-            ]);
             $this->storeRefreshToken($userId, $newRefreshToken);
             $this->setRefreshTokenCookie($newRefreshToken);
 
@@ -396,39 +343,6 @@ class AuthController extends BaseController
                 'expiresIn' => $this->getAccessTokenLifetime()
             ]);
         } catch (\Exception $e) {
-            try {
-                $this->db->executeStatement(
-                    'DELETE FROM refresh_tokens WHERE token = ?',
-                    [$refreshToken]
-                );
-            } catch (\Exception) {
-            }
-            
-            $this->cleanupExpiredTokens();
-            
-            ApiResponse::error('Invalid or expired refresh token.', 401);
-        }
-    }
-
-
-    private function cleanupExpiredTokens(): void
-    {
-        try {
-            $tokens = $this->db->fetchAllAssociative('SELECT id, token FROM refresh_tokens');
-            
-            foreach ($tokens as $row) {
-                try {
-                    JWTService::validateJWTToken($row['token'], $this->getRefreshSecretKey());
-                } catch (\Exception) {
-                    $this->db->executeStatement('DELETE FROM refresh_tokens WHERE id = ?', [$row['id']]);
-                }
-            }
-        } catch (\Exception) {
-        
-        }
-    }
-
-
             try {
                 $this->db->executeStatement(
                     'DELETE FROM refresh_tokens WHERE token = ?',
@@ -495,7 +409,6 @@ class AuthController extends BaseController
         );
     }
 
-    private function setRefreshTokenCookie(string $refreshToken): void
     private function setRefreshTokenCookie(string $refreshToken): void
     {
         $lifetime = $this->getRefreshTokenLifetime();

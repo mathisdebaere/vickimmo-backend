@@ -5,7 +5,6 @@ namespace Http;
 use \Services\ApiResponse;
 
 class AgenciesController extends BaseController
-class AgenciesController extends BaseController
 {
     private const UPLOAD_DIR = __DIR__ . '/../../public/uploads/agencies/';
     private const MAX_UPLOAD_SIZE = 10485760; // 10MB for logos
@@ -13,21 +12,6 @@ class AgenciesController extends BaseController
 
     public function overview(): void
     {
-        $conditions = [];
-        $params = [];
-
-        if (!empty($_GET['search'])) {
-            $searchTerm = '%' . $_GET['search'] . '%';
-            $conditions[] = '(a.name LIKE ? OR a.city LIKE ? OR a.description LIKE ?)';
-            $params[] = $searchTerm;
-            $params[] = $searchTerm;
-            $params[] = $searchTerm;
-        }
-
-        /* ─────────────────────────────
-        BASE QUERY
-        ───────────────────────────── */
-        $sql = 'SELECT 
         $conditions = [];
         $params = [];
 
@@ -537,7 +521,6 @@ class AgenciesController extends BaseController
 
             $email = isset($data['email']) ? trim((string)$data['email']) : '';
             if ($email === '' || !$this->validateEmail($email)) {
-            if ($email === '' || !$this->validateEmail($email)) {
                 $errors[] = 'Valid email address is required.';
             }
 
@@ -568,7 +551,6 @@ class AgenciesController extends BaseController
         if (isset($data['phone']) && $data['phone'] !== null) {
             $phone = trim((string)$data['phone']);
             if ($phone !== '' && !$this->validatePhone($phone)) {
-            if ($phone !== '' && !$this->validatePhone($phone)) {
                 $errors[] = 'Invalid phone number format.';
             }
         }
@@ -576,7 +558,6 @@ class AgenciesController extends BaseController
         // Validate website URL if provided
         if (isset($data['website']) && $data['website'] !== null) {
             $website = trim((string)$data['website']);
-            if ($website !== '' && !$this->validateUrl($website)) {
             if ($website !== '' && !$this->validateUrl($website)) {
                 $errors[] = 'Invalid website URL format.';
             }
@@ -588,7 +569,6 @@ class AgenciesController extends BaseController
     private function prepareAgencyData(array $data): array
     {
         
-        
         return [
             'name' => trim((string)$data['name']),
             'phone' => isset($data['phone']) ? trim((string)$data['phone']) : null,
@@ -599,13 +579,12 @@ class AgenciesController extends BaseController
             'postal' => trim((string)$data['postal']),
             'website' => isset($data['website']) ? trim((string)$data['website']) : null,
             'logo' => null, 
-            'logo' => null, 
         ];
     }
 
     private function prepareUpdateData(array $data): array
     {
-        
+        $allowedFields = ['name', 'phone', 'email', 'description', 'address', 'city', 'postal', 'website'];
         $updateData = [];
 
         foreach ($allowedFields as $field) {
