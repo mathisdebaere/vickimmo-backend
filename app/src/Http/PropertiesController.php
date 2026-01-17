@@ -3,7 +3,9 @@
 namespace Http;
 
 use \Services\ApiResponse;
+use \Services\JWTService;
 
+class PropertiesController extends BaseController
 class PropertiesController extends BaseController
 {
     private const UPLOAD_DIR = __DIR__ . '/../../public/uploads/properties/';
@@ -12,7 +14,68 @@ class PropertiesController extends BaseController
     
     private const VALID_TYPES = ['house', 'apartment', 'land', 'garage', 'business'];
     private const VALID_STATUSES = ['for sale', 'for rent', 'for auction', 'sold', 'rented'];
-    private const VALID_VISIBILITIES = ['public', 'private', 'archived'];
+
+    private function getCurrentUser(): ?array
+    {
+        $token = $this->getBearerToken();
+        if (!$token) {
+            return null;
+        }
+
+        try {
+            $secretKey = $_ENV['JWT_SECRET_KEY'] ?? null;
+            if (!$secretKey) {
+                return null;
+            }
+            
+            $decoded = JWTService::validateJWTToken($token, $secretKey);
+            
+            $user = $this->db->fetchAssociative(
+                'SELECT id, role FROM users WHERE id = ?',
+                [(int)$decoded->sub]
+            );
+
+            if ($user === false) {
+                return null;
+            }
+
+            return [
+                'id' => (int)$user['id'],
+                'role' => $user['role']
+            ];
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    private function getUserAgencies(int $userId): array
+    {
+        $agencies = $this->db->fetchAllAssociative(
+            'SELECT agency_id FROM agencies_employees WHERE user_id = ?',
+            [$userId]
+        );
+
+        return array_map(fn($row) => (int)$row['agency_id'], $agencies);
+    }
+
+    private function getBearerToken(): ?string
+    {
+        $headers = getallheaders();
+        
+        if (isset($headers['Authorization'])) {
+            $authHeader = $headers['Authorization'];
+        } elseif (isset($headers['authorization'])) {
+            $authHeader = $headers['authorization'];
+        } else {
+            return null;
+        }
+
+        if (preg_match('/Bearer\s+(\S+)/', $authHeader, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
+    }
 
     public function overview(): void
     {
@@ -20,25 +83,50 @@ class PropertiesController extends BaseController
         $params = [];
 
         /* ─────────────────────────────
+        VISIBILITY FILTER
+        ───────────────────────────── */
+        $currentUser = $this->getCurrentUser();
+        
+        if ($currentUser === null || $currentUser['role'] === 'client') {
+            $conditions[] = 'p.visibility = ?';
+            $params[] = 'public';
+        } elseif ($currentUser['role'] === 'employee') {
+            $userAgencies = $this->getUserAgencies($currentUser['id']);
+            
+            if (!empty($userAgencies)) {
+                $agencyPlaceholders = implode(',', array_fill(0, count($userAgencies), '?'));
+                $conditions[] = "(p.visibility = 'public' OR (p.visibility = 'private' AND p.agency_id IN ($agencyPlaceholders)))";
+                array_push($params, ...$userAgencies);
+            } else {
+                $conditions[] = 'p.visibility = ?';
+                $params[] = 'public';
+            }
+        }
+
+        /* ─────────────────────────────
         TEXT / EXACT MATCH FILTERS
         ───────────────────────────── */
 
         if (!empty($_GET['title'])) {
+            $conditions[] = 'p.title LIKE ?';
             $conditions[] = 'p.title LIKE ?';
             $params[] = '%' . trim($_GET['title']) . '%';
         }
 
         if (!empty($_GET['city'])) {
             $conditions[] = 'p.city = ?';
+            $conditions[] = 'p.city = ?';
             $params[] = trim($_GET['city']);
         }
 
         if (!empty($_GET['postal'])) {
             $conditions[] = 'p.postal = ?';
+            $conditions[] = 'p.postal = ?';
             $params[] = trim($_GET['postal']);
         }
 
         if (!empty($_GET['address'])) {
+            $conditions[] = 'p.address LIKE ?';
             $conditions[] = 'p.address LIKE ?';
             $params[] = '%' . trim($_GET['address']) . '%';
         }
@@ -55,6 +143,7 @@ class PropertiesController extends BaseController
 
             if (!empty($types)) {
                 $conditions[] = 'p.type IN (' . implode(',', array_fill(0, count($types), '?')) . ')';
+                $conditions[] = 'p.type IN (' . implode(',', array_fill(0, count($types), '?')) . ')';
                 array_push($params, ...$types);
             }
         }
@@ -67,13 +156,9 @@ class PropertiesController extends BaseController
 
             if (!empty($statuses)) {
                 $conditions[] = 'p.status IN (' . implode(',', array_fill(0, count($statuses), '?')) . ')';
+                $conditions[] = 'p.status IN (' . implode(',', array_fill(0, count($statuses), '?')) . ')';
                 array_push($params, ...$statuses);
             }
-        }
-
-        if (!empty($_GET['visibility']) && in_array($_GET['visibility'], self::VALID_VISIBILITIES, true)) {
-            $conditions[] = 'p.visibility = ?';
-            $params[] = $_GET['visibility'];
         }
 
 
@@ -83,20 +168,24 @@ class PropertiesController extends BaseController
 
         if (isset($_GET['bedrooms']) && is_numeric($_GET['bedrooms'])) {
             $conditions[] = 'p.bedrooms = ?';
+            $conditions[] = 'p.bedrooms = ?';
             $params[] = (int)$_GET['bedrooms'];
         }
 
         if (isset($_GET['bathrooms']) && is_numeric($_GET['bathrooms'])) {
+            $conditions[] = 'p.bathrooms = ?';
             $conditions[] = 'p.bathrooms = ?';
             $params[] = (int)$_GET['bathrooms'];
         }
 
         if (isset($_GET['floors']) && is_numeric($_GET['floors'])) {
             $conditions[] = 'p.floors = ?';
+            $conditions[] = 'p.floors = ?';
             $params[] = (int)$_GET['floors'];
         }
 
         if (isset($_GET['agency_id']) && is_numeric($_GET['agency_id'])) {
+            $conditions[] = 'p.agency_id = ?';
             $conditions[] = 'p.agency_id = ?';
             $params[] = (int)$_GET['agency_id'];
         }
@@ -107,40 +196,48 @@ class PropertiesController extends BaseController
 
         if (isset($_GET['price_min']) && is_numeric($_GET['price_min'])) {
             $conditions[] = 'p.price >= ?';
+            $conditions[] = 'p.price >= ?';
             $params[] = (float)$_GET['price_min'];
         }
 
         if (isset($_GET['price_max']) && is_numeric($_GET['price_max'])) {
+            $conditions[] = 'p.price <= ?';
             $conditions[] = 'p.price <= ?';
             $params[] = (float)$_GET['price_max'];
         }
 
         if (isset($_GET['living_area_min']) && is_numeric($_GET['living_area_min'])) {
             $conditions[] = 'p.living_area >= ?';
+            $conditions[] = 'p.living_area >= ?';
             $params[] = (float)$_GET['living_area_min'];
         }
 
         if (isset($_GET['living_area_max']) && is_numeric($_GET['living_area_max'])) {
+            $conditions[] = 'p.living_area <= ?';
             $conditions[] = 'p.living_area <= ?';
             $params[] = (float)$_GET['living_area_max'];
         }
 
         if (isset($_GET['surface_area_min']) && is_numeric($_GET['surface_area_min'])) {
             $conditions[] = 'p.surface_area >= ?';
+            $conditions[] = 'p.surface_area >= ?';
             $params[] = (float)$_GET['surface_area_min'];
         }
 
         if (isset($_GET['surface_area_max']) && is_numeric($_GET['surface_area_max'])) {
+            $conditions[] = 'p.surface_area <= ?';
             $conditions[] = 'p.surface_area <= ?';
             $params[] = (float)$_GET['surface_area_max'];
         }
 
         if (isset($_GET['build_year_min']) && is_numeric($_GET['build_year_min'])) {
             $conditions[] = 'p.build_year >= ?';
+            $conditions[] = 'p.build_year >= ?';
             $params[] = (int)$_GET['build_year_min'];
         }
 
         if (isset($_GET['build_year_max']) && is_numeric($_GET['build_year_max'])) {
+            $conditions[] = 'p.build_year <= ?';
             $conditions[] = 'p.build_year <= ?';
             $params[] = (int)$_GET['build_year_max'];
         }
@@ -156,38 +253,46 @@ class PropertiesController extends BaseController
             );
 
             $conditions[] = 'p.epc_label IN (' . implode(',', array_fill(0, count($labels), '?')) . ')';
+            $conditions[] = 'p.epc_label IN (' . implode(',', array_fill(0, count($labels), '?')) . ')';
             array_push($params, ...$labels);
         }
 
         if (isset($_GET['epc_value_max']) && is_numeric($_GET['epc_value_max'])) {
             $conditions[] = 'p.epc_value <= ?';
+            $conditions[] = 'p.epc_value <= ?';
             $params[] = (int)$_GET['epc_value_max'];
         }
 
         /* ─────────────────────────────
-        BOOLEAN FILTERS
+        BASE QUERY 
         ───────────────────────────── */
 
-        if (isset($_GET['auction'])) {
-            $conditions[] = 'p.auction = ?';
-            $params[] = (int)(bool)$_GET['auction'];
-        }
+        $userId = $currentUser['id'] ?? null;
 
-        if (isset($_GET['availability'])) {
-            $conditions[] = 'p.availability = ?';
-            $params[] = (int)(bool)$_GET['availability'];
-        }
+$sql = '
+    SELECT 
+        p.*,
+        a.name AS agency_name,
+        a.logo AS agency_logo,
+        (
+            SELECT pi.image_path
+            FROM property_images pi
+            WHERE pi.property_id = p.id AND pi.is_main = 1
+            LIMIT 1
+        ) AS main_image_path,
+        ' . ($userId ? '
+        CASE 
+            WHEN f.user_id IS NULL THEN 0 
+            ELSE 1 
+        END
+        ' : '0') . ' AS favorited
+    FROM properties p
+    LEFT JOIN agencies a ON a.id = p.agency_id
+    ' . ($userId ? '
+    LEFT JOIN favourites f 
+        ON f.property_id = p.id 
+        AND f.user_id = ' . (int)$userId : '');
 
-        /* ─────────────────────────────
-        BASE QUERY - NOW WITH JOINS
-        ───────────────────────────── */
-
-        $sql = 'SELECT p.*, 
-                    a.name AS agency_name,
-                    pi.image_path AS main_image_path
-                FROM properties p
-                LEFT JOIN agencies a ON a.id = p.agency_id
-                LEFT JOIN property_images pi ON pi.property_id = p.id AND pi.is_main = 1';
 
         if (!empty($conditions)) {
             $sql .= ' WHERE ' . implode(' AND ', $conditions);
@@ -209,8 +314,32 @@ class PropertiesController extends BaseController
 
             if (in_array($_GET['sort'], $allowedSorts, true)) {
                 $sql .= " ORDER BY p.{$_GET['sort']} $direction";
+                $sql .= " ORDER BY p.{$_GET['sort']} $direction";
             }
         }
+
+        /* ─────────────────────────────
+        LIMIT & OFFSET
+        ───────────────────────────── */
+        $limit = null;
+        $offset = null;
+
+        if (isset($_GET['limit']) && is_numeric($_GET['limit'])) {
+            $limit = max(1, min((int)$_GET['limit'], 100));
+        }
+
+        if (isset($_GET['offset']) && is_numeric($_GET['offset'])) {
+            $offset = max(0, (int)$_GET['offset']);
+        }
+
+        if ($limit !== null) {
+            $sql .= " LIMIT $limit";
+            
+            if ($offset !== null) {
+                $sql .= " OFFSET $offset";
+            }
+        }
+    
 
         /* ─────────────────────────────
         LIMIT & OFFSET
@@ -252,6 +381,12 @@ class PropertiesController extends BaseController
                 $property['main_image_url'] = null;
             }
             unset($property['main_image_path']); // Remove internal field
+
+            if (!empty($property['agency_logo'])) {
+                $property['agency_logo'] = '/uploads/agencies/' . $property['agency_logo'];
+            } else {
+                $property['agency_logo'] = null;
+            }
         }
 
         // Return with pagination metadata
@@ -286,9 +421,8 @@ class PropertiesController extends BaseController
         $result = $this->db->executeStatement(
             'INSERT INTO properties 
             (title, description, agency_id, address, postal, city, price, build_year, 
-             bedrooms, bathrooms, living_area, surface_area, type, sub_type, status, 
-             visibility, auction, epc_label, epc_value, floors, availability) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+             bedrooms, bathrooms, living_area, surface_area, type, sub_type, status, visibility, epc_label, epc_value, floors) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             array_values($propertyData)
         );
 
@@ -303,11 +437,25 @@ class PropertiesController extends BaseController
 
     public function getPropertiesByAgency(int $agencyID): void
     {
+        $userId = $this->getCurrentUser()['id'];
+
         $properties = $this->db->fetchAllAssociative(
             'SELECT p.*, 
-                    a.name AS agency_name, pi.image_path 
-            FROM properties p 
-            LEFT JOIN property_images pi ON pi.property_id = p.id AND pi.is_main = 1 
+                    a.name AS agency_name, 
+                    a.logo as agency_logo,
+                    (SELECT pi.image_path 
+                     FROM property_images pi 
+                     WHERE pi.property_id = p.id AND pi.is_main = 1 
+                     LIMIT 1) AS image_path, '
+                    . ($userId ? '
+                    CASE 
+                        WHEN f.user_id IS NULL THEN 0 
+                        ELSE 1 
+                    END' : '0') . ' AS favorited
+            FROM properties p
+            LEFT JOIN favourites f 
+                ON f.property_id = p.id 
+                AND f.user_id = ' . 1 . '
             INNER JOIN agencies a ON a.id = p.agency_id 
             WHERE p.agency_id = ? 
             ORDER BY p.created_at DESC',
@@ -322,6 +470,12 @@ class PropertiesController extends BaseController
             }
 
             unset($property['image_path']);
+
+            if (!empty($property['agency_logo'])) {
+                $property['agency_logo'] = '/uploads/agencies/' . $property['agency_logo'];
+            } else {
+                $property['agency_logo'] = null;
+            }
         }
 
         ApiResponse::success($properties);
@@ -380,7 +534,7 @@ class PropertiesController extends BaseController
         }
     }
 
-    public function deleteByID(int $propertyID): void
+    public function toggleVisibility(int $propertyID): void
     {
         if (!$this->propertyExists($propertyID)) {
             ApiResponse::error('Property not found.', 404);
@@ -388,20 +542,77 @@ class PropertiesController extends BaseController
         }
 
         try {
-            $this->db->beginTransaction();
-            
+            // Get current visibility
+            $property = $this->db->fetchAssociative(
+                'SELECT visibility FROM properties WHERE id = ?',
+                [$propertyID]
+            );
+
+            $newVisibility = $property['visibility'] === 'public' ? 'private' : 'public';
+
+            $this->db->executeStatement(
+                'UPDATE properties SET visibility = ? WHERE id = ?',
+                [$newVisibility, $propertyID]
+            );
+
+            ApiResponse::success([
+                'message' => 'Property visibility updated successfully.',
+                'visibility' => $newVisibility
+            ], status: 200);
+        } catch (\Throwable $e) {
+            ApiResponse::error('Failed to update visibility: ' . $e->getMessage(), 500);
+        }
+    }
+
+    public function deleteByID(int $propertyID): void
+    {
+        if (!$this->propertyExists($propertyID)) {
+            ApiResponse::error('Property not found', 404);
+            return;
+        }
+
+        try {
+            // Delete all associated images first
             $this->deleteAllImagesInternal($propertyID);
-            
+
+            // Delete property features
+            $this->db->executeStatement(
+                'DELETE FROM property_features WHERE property_id = ?',
+                [$propertyID]
+            );
+
+            // Delete favourites
+            $this->db->executeStatement(
+                'DELETE FROM favourites WHERE property_id = ?',
+                [$propertyID]
+            );
+
+            // Delete auctions and bids
+            $auctions = $this->db->fetchAllAssociative(
+                'SELECT id FROM auctions WHERE property_id = ?',
+                [$propertyID]
+            );
+
+            foreach ($auctions as $auction) {
+                $this->db->executeStatement(
+                    'DELETE FROM bids WHERE auction_id = ?',
+                    [$auction['id']]
+                );
+            }
+
+            $this->db->executeStatement(
+                'DELETE FROM auctions WHERE property_id = ?',
+                [$propertyID]
+            );
+
+            // Finally delete the property itself
             $this->db->executeStatement(
                 'DELETE FROM properties WHERE id = ?',
                 [$propertyID]
             );
-            
-            $this->db->commit();
-            
-            ApiResponse::success(['message' => 'Property and all associated images deleted successfully.'], status: 200);
+
+            ApiResponse::success(['message' => 'Property and all associated data deleted successfully.'], status: 200);
         } catch (\Throwable $e) {
-            $this->db->rollBack();
             ApiResponse::error('Failed to delete property: ' . $e->getMessage(), 500);
         }
     }
@@ -632,6 +843,25 @@ class PropertiesController extends BaseController
         ]);
     }
 
+    public function deleteAllFeaturesFromProperty(int $propertyID): void
+    {
+        if (!$this->propertyExists($propertyID)) {
+            ApiResponse::error('Property not found.', 404);
+            return;
+        }
+
+        $result = $this->db->executeStatement(
+            'DELETE FROM properties_features WHERE property_id = ?',
+            [$propertyID]
+        );
+
+        ApiResponse::success([
+            'message' => 'All features removed from property successfully.',
+            'property_id' => $propertyID,
+            'deleted_count' => $result
+        ]);
+    }
+
     // PRIVATE HELPER METHODS
 
     private function validatePropertyData(array $data, bool $isCreate): array
@@ -701,18 +931,12 @@ class PropertiesController extends BaseController
             }
         }
 
-        if (isset($data['visibility'])) {
-            $visibility = strtolower(trim((string)$data['visibility']));
-            if (!in_array($visibility, self::VALID_VISIBILITIES, true)) {
-                $errors[] = 'Visibility must be one of: ' . implode(', ', self::VALID_VISIBILITIES);
-            }
-        }
-
         return $errors;
     }
 
     private function preparePropertyData(array $data): array
     {
+        
         
         return [
             'title' => trim((string)$data['title']),
@@ -730,17 +954,20 @@ class PropertiesController extends BaseController
             'type' => strtolower(trim((string)$data['type'])),
             'sub_type' => isset($data['sub_type']) ? trim((string)$data['sub_type']) : null,
             'status' => strtolower(trim((string)$data['status'])),
-            'visibility' => isset($data['visibility']) ? strtolower(trim((string)$data['visibility'])) : 'public',
-            'auction' => isset($data['auction']) ? (int)(bool)$data['auction'] : 0,
+            'visibility' => isset($data['visibility']) && in_array($data['visibility'], ['public', 'private'], true) ? $data['visibility'] : 'public',
             'epc_label' => isset($data['epc_label']) ? strtoupper(trim((string)$data['epc_label'])) : null,
             'epc_value' => isset($data['epc_value']) ? (int)$data['epc_value'] : null,
             'floors' => isset($data['floors']) ? (int)$data['floors'] : null,
-            'availability' => isset($data['availability']) ? (int)(bool)$data['availability'] : 1,
         ];
     }
 
     private function prepareUpdateData(array $data): array
     {
+        $allowedFields = [
+            'title', 'description', 'agency_id', 'address', 'postal', 'city', 'price',
+            'build_year', 'bedrooms', 'bathrooms', 'living_area', 'surface_area', 'type',
+            'sub_type', 'status', 'visibility', 'epc_label', 'epc_value', 'floors'
+        ];
 
         $updateData = [];
 
@@ -762,13 +989,10 @@ class PropertiesController extends BaseController
             }
 
             if ($field === 'visibility') {
-                $value = strtolower(trim((string)$value));
-                if (!in_array($value, self::VALID_VISIBILITIES, true)) continue;
+                if (!in_array($value, ['public', 'private'], true)) continue;
             }
 
-            if (in_array($field, ['auction', 'availability'])) {
-                $value = (int)(bool)$value;
-            } elseif (in_array($field, ['price', 'living_area', 'surface_area'])) {
+            if (in_array($field, ['price', 'living_area', 'surface_area'])) {
                 $value = (float)$value;
             } elseif (in_array($field, ['agency_id', 'build_year', 'bedrooms', 'bathrooms', 'epc_value', 'floors'])) {
                 $value = (int)$value;
@@ -784,11 +1008,6 @@ class PropertiesController extends BaseController
         return $updateData;
     }
 
-    private function propertyExists(int $propertyID): bool
-    {
-        return $this->entityExists('properties', $propertyID);
-    }
-
     private function featureExists(string $name): bool
     {
         $result = $this->db->fetchAssociative(
@@ -802,6 +1021,7 @@ class PropertiesController extends BaseController
     private function featureExistsById(int $featureID): bool
     {
         return $this->entityExists('features', $featureID);
+        return $this->entityExists('features', $featureID);
     }
 
     private function propertyHasFeature(int $propertyID, int $featureID): bool
@@ -812,11 +1032,6 @@ class PropertiesController extends BaseController
         );
         
         return $result !== false;
-    }
-
-    private function getLastInsertId(): int
-    {
-        return (int)$this->db->lastInsertId();
     }
 
     private function normalizeFilesArray(array $files): array
@@ -846,6 +1061,12 @@ class PropertiesController extends BaseController
         $successCount = 0;
         $errors = [];
 
+        // Get current image count for this property to determine next number
+        $currentCount = (int)$this->db->fetchOne(
+            'SELECT COUNT(*) FROM property_images WHERE property_id = ?',
+            [$propertyID]
+        );
+
         foreach ($files as $file) {
             if ($file['error'] !== UPLOAD_ERR_OK) {
                 $errors[] = "Upload error for {$file['name']} (code: {$file['error']})";
@@ -863,7 +1084,9 @@ class PropertiesController extends BaseController
                 continue;
             }
 
-            $newFileName = uniqid("prop_{$propertyID}_") . '.' . $fileExt;
+            // Use sequential numbering: prop_1_1, prop_1_2, etc.
+            $imageNumber = $currentCount + $successCount + 1;
+            $newFileName = "prop_{$propertyID}_{$imageNumber}." . $fileExt;
             $destination = self::UPLOAD_DIR . $newFileName;
 
             if (!move_uploaded_file($file['tmp_name'], $destination)) {
@@ -871,7 +1094,7 @@ class PropertiesController extends BaseController
                 continue;
             }
 
-            $isMain = ($successCount === 0) ? 1 : 0;
+            $isMain = ($successCount === 0 && $currentCount === 0) ? 1 : 0;
 
             $this->db->executeStatement(
                 'INSERT INTO property_images (property_id, image_path, is_main) VALUES (?, ?, ?)',
@@ -925,6 +1148,10 @@ class PropertiesController extends BaseController
 
         foreach ($images as $img) {
             $filePath = self::UPLOAD_DIR . $img['image_path'];
+            
+            if (file_exists($filePath) && !@unlink($filePath)) {
+                $errors[] = "Failed to delete file: {$img['image_path']}";
+                continue;
             
             if (file_exists($filePath) && !@unlink($filePath)) {
                 $errors[] = "Failed to delete file: {$img['image_path']}";
