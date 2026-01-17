@@ -3,6 +3,7 @@
 namespace Http;
 
 use \Services\ApiResponse;
+use Services\JWTService;
 
 class FavouritesController extends BaseController
 {
@@ -19,6 +20,8 @@ class FavouritesController extends BaseController
             return;
         }
 
+        $userId = $this->getCurrentUser();
+
         $favourites = $this->db->fetchAllAssociative(
             'SELECT f.id, f.created_at,
                     p.id AS property_id, 
@@ -34,7 +37,12 @@ class FavouritesController extends BaseController
                     (SELECT pi.image_path 
                      FROM property_images pi 
                      WHERE pi.property_id = p.id AND pi.is_main = 1 
-                     LIMIT 1) AS main_image_path
+                     LIMIT 1) AS main_image_path, '
+                     . ($userId ? '
+                    CASE 
+                        WHEN f.user_id IS NULL THEN 0 
+                        ELSE 1 
+                    END' : '0') . ' AS favorited
             FROM favourites f
             INNER JOIN properties p ON p.id = f.property_id
             LEFT JOIN agencies a ON a.id = p.agency_id
@@ -177,6 +185,58 @@ class FavouritesController extends BaseController
         );
         
         return $result !== false;
+    }
+
+     private function getCurrentUser(): ?array
+    {
+        $token = $this->getBearerToken();
+        if (!$token) {
+            return null;
+        }
+
+        try {
+            $secretKey = $_ENV['JWT_SECRET_KEY'] ?? null;
+            if (!$secretKey) {
+                return null;
+            }
+            
+            $decoded = JWTService::validateJWTToken($token, $secretKey);
+            
+            $user = $this->db->fetchAssociative(
+                'SELECT id, role FROM users WHERE id = ?',
+                [(int)$decoded->sub]
+            );
+
+            if ($user === false) {
+                return null;
+            }
+
+            return [
+                'id' => (int)$user['id'],
+                'role' => $user['role']
+            ];
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    private function getBearerToken(): ?string
+    {
+        $headers = getallheaders();
+        
+        if (isset($headers['Authorization'])) {
+            $authHeader = $headers['Authorization'];
+        } elseif (isset($headers['authorization'])) {
+            $authHeader = $headers['authorization'];
+        } else {
+            return null;
+        }
+
+        if (preg_match('/Bearer\s+(\S+)/', $authHeader, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
     }
 
 }
