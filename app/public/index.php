@@ -66,7 +66,7 @@ $router->mount('/api', function() use ($router) {
     $router->get('/auctions/(\d+)', 'AuctionsController@getByID');
 
     // Property auctions
-    $router->get('/properties/(\d+)/auctions', 'AuctionController@getAuctionsByProperty');
+    $router->get('/properties/(\d+)/auctions', 'AuctionsController@getAuctionsByProperty');
 
     // Bids
     $router->get('/auctions/(\d+)/bids', 'AuctionsController@getAllBids');
