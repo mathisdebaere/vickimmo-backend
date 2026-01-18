@@ -102,11 +102,11 @@ $router->mount('/api', function() use ($router) {
     header('Access-Control-Allow-Headers: Content-Type, Authorization');
     header('Access-Control-Allow-Credentials: true');
 
-    $router->get('/users', 'UserController@overview');
-    $router->post('/users', 'UserController@post');
-    $router->get('/users/(\d+)', 'UserController@getByID');
-    $router->put('/users/(\d+)', 'UserController@putByID');
-    $router->delete('/users/(\d+)', 'UserController@deleteByID');
+    $router->get('/users', 'UsersController@overview');
+    $router->post('/users', 'UsersController@post');
+    $router->get('/users/(\d+)', 'UsersController@getByID');
+    $router->put('/users/(\d+)', 'UsersController@putByID');
+    $router->delete('/users/(\d+)', 'UsersController@deleteByID');
 });
 
 // Agencies routes
