@@ -23,9 +23,6 @@ class AgenciesController extends BaseController
             $params[] = $searchTerm;
         }
 
-        /* ─────────────────────────────
-        BASE QUERY
-        ───────────────────────────── */
         $sql = 'SELECT 
                 a.id,
                 a.name,
@@ -54,9 +51,6 @@ class AgenciesController extends BaseController
 
         $sql .= ' GROUP BY a.id';
 
-        /* ─────────────────────────────
-        SORTING
-        ───────────────────────────── */
         if (!empty($_GET['sort'])) {
             $allowedSorts = ['rating', 'name', 'created_at'];
             $direction = ($_GET['direction'] ?? 'asc') === 'desc' ? 'DESC' : 'ASC';
@@ -72,9 +66,6 @@ class AgenciesController extends BaseController
             $sql .= ' ORDER BY a.name ASC';
         }
 
-        /* ─────────────────────────────
-        LIMIT & OFFSET
-        ───────────────────────────── */
         $limit = null;
         $offset = null;
 

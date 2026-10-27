@@ -497,24 +497,4 @@ class AuthController extends BaseController
         return $errors;
     }
 
-    private function getBearerToken(): ?string
-    {
-        $headers = getallheaders();
-        
-        if (isset($headers['Authorization'])) {
-            $authHeader = $headers['Authorization'];
-            if (preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
-                return $matches[1];
-            }
-        }
-        
-        if (isset($headers['authorization'])) {
-            $authHeader = $headers['authorization'];
-            if (preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
-                return $matches[1];
-            }
-        }
-        
-        return null;
-    }
 }

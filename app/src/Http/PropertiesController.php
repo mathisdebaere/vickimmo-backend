@@ -57,33 +57,12 @@ class PropertiesController extends BaseController
         return array_map(fn($row) => (int)$row['agency_id'], $agencies);
     }
 
-    private function getBearerToken(): ?string
-    {
-        $headers = getallheaders();
-        
-        if (isset($headers['Authorization'])) {
-            $authHeader = $headers['Authorization'];
-        } elseif (isset($headers['authorization'])) {
-            $authHeader = $headers['authorization'];
-        } else {
-            return null;
-        }
-
-        if (preg_match('/Bearer\s+(\S+)/', $authHeader, $matches)) {
-            return $matches[1];
-        }
-
-        return null;
-    }
 
     public function overview(): void
     {
         $conditions = [];
         $params = [];
 
-        /* ─────────────────────────────
-        VISIBILITY FILTER
-        ───────────────────────────── */
         $currentUser = $this->getCurrentUser();
         
         if ($currentUser === null || $currentUser['role'] === 'client') {
@@ -102,9 +81,6 @@ class PropertiesController extends BaseController
             }
         }
 
-        /* ─────────────────────────────
-        TEXT / EXACT MATCH FILTERS
-        ───────────────────────────── */
 
         if (!empty($_GET['title'])) {
             $conditions[] = 'p.title LIKE ?';
@@ -126,9 +102,6 @@ class PropertiesController extends BaseController
             $params[] = '%' . trim($_GET['address']) . '%';
         }
 
-        /* ─────────────────────────────
-        ENUM FILTERS (SAFE)
-        ───────────────────────────── */
 
         if (!empty($_GET['type'])) {
             $types = array_filter(
@@ -155,9 +128,6 @@ class PropertiesController extends BaseController
         }
 
 
-        /* ─────────────────────────────
-        NUMERIC EXACT MATCH
-        ───────────────────────────── */
 
         if (isset($_GET['bedrooms']) && is_numeric($_GET['bedrooms'])) {
             $conditions[] = 'p.bedrooms = ?';
@@ -179,9 +149,6 @@ class PropertiesController extends BaseController
             $params[] = (int)$_GET['agency_id'];
         }
 
-        /* ─────────────────────────────
-        RANGE FILTERS
-        ───────────────────────────── */
 
         if (isset($_GET['price_min']) && is_numeric($_GET['price_min'])) {
             $conditions[] = 'p.price >= ?';
@@ -223,9 +190,6 @@ class PropertiesController extends BaseController
             $params[] = (int)$_GET['build_year_max'];
         }
 
-        /* ─────────────────────────────
-        EPC FILTERS
-        ───────────────────────────── */
 
         if (!empty($_GET['epc_label'])) {
             $labels = array_map(
@@ -242,9 +206,6 @@ class PropertiesController extends BaseController
             $params[] = (int)$_GET['epc_value_max'];
         }
 
-        /* ─────────────────────────────
-        BASE QUERY 
-        ───────────────────────────── */
 
         $userId = $currentUser['id'] ?? null;
 
@@ -277,9 +238,6 @@ $sql = '
             $sql .= ' WHERE ' . implode(' AND ', $conditions);
         }
 
-        /* ─────────────────────────────
-        SORTING (SAFE)
-        ───────────────────────────── */
 
         if (!empty($_GET['sort'])) {
             $allowedSorts = [
@@ -296,9 +254,6 @@ $sql = '
             }
         }
 
-        /* ─────────────────────────────
-        LIMIT & OFFSET
-        ───────────────────────────── */
         $limit = null;
         $offset = null;
 

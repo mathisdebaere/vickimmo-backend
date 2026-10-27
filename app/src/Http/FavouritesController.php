@@ -189,23 +189,5 @@ class FavouritesController extends BaseController
         }
     }
 
-    private function getBearerToken(): ?string
-    {
-        $headers = getallheaders();
-        
-        if (isset($headers['Authorization'])) {
-            $authHeader = $headers['Authorization'];
-        } elseif (isset($headers['authorization'])) {
-            $authHeader = $headers['authorization'];
-        } else {
-            return null;
-        }
-
-        if (preg_match('/Bearer\s+(\S+)/', $authHeader, $matches)) {
-            return $matches[1];
-        }
-
-        return null;
-    }
 
 }

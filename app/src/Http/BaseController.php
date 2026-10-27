@@ -19,6 +19,21 @@ abstract class BaseController
         ApiResponse::error('HTTP request method ' . $_SERVER['REQUEST_METHOD'] . ' not allowed.', 405);
     }
 
+    protected function getBearerToken(): ?string
+    {
+        $headers = array_change_key_case(getallheaders() ?: [], CASE_LOWER);
+        $authHeader = $headers['authorization']
+            ?? $_SERVER['HTTP_AUTHORIZATION']
+            ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
+            ?? '';
+
+        if (preg_match('/Bearer\s+(\S+)/i', $authHeader, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
+    }
+
     protected function getJsonInput(): ?array
     {
         $input = file_get_contents('php://input');
